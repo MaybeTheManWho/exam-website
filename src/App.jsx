@@ -6,6 +6,9 @@ import ExamQuestion from './components/student/ExamQuestion';
 import ExamResults from './components/student/ExamResults';
 import AdminDashboard from './components/admin/AdminDashboard';
 import ExamDetailPage from './components/admin/ExamDetailPage';
+import { AppProvider } from './context/AppContext';
+import GatExamPage from './components/student/GatExamPage';
+import GatTrainingPage from './components/student/GatTrainingPage';
 
 const App = () => {
   // Application state
@@ -14,6 +17,8 @@ const App = () => {
   const [selectedExam, setSelectedExam] = useState(null);
   const [examResults, setExamResults] = useState(null);
   const [selectedExamId, setSelectedExamId] = useState(null);
+  const [gatMode, setGatMode] = useState(null); // 'math' or 'arabic'
+  const [gatAction, setGatAction] = useState(null); // 'exam' or 'train'
   
   // Check if user is already logged in
   useEffect(() => {
@@ -90,6 +95,18 @@ const App = () => {
     setCurrentView('adminDashboard');
   };
   
+  // Handle GAT navigation
+  const handleGatNavigation = (mode, action) => {
+    setGatMode(mode); // 'math' or 'arabic'
+    setGatAction(action); // 'exam' or 'train'
+    
+    if (action === 'exam') {
+      setCurrentView('gatExam');
+    } else {
+      setCurrentView('gatTraining');
+    }
+  };
+  
   // Render the appropriate view
   const renderView = () => {
     switch (currentView) {
@@ -101,7 +118,8 @@ const App = () => {
           <StudentDashboard 
             user={user} 
             onStartExam={handleStartExam} 
-            onLogout={handleLogout} 
+            onLogout={handleLogout}
+            onGatNavigation={handleGatNavigation}
           />
         );
         
@@ -147,15 +165,33 @@ const App = () => {
           />
         );
         
+      case 'gatExam':
+        return (
+          <GatExamPage
+            mode={gatMode}
+            onReturn={handleReturnToDashboard}
+          />
+        );
+        
+      case 'gatTraining':
+        return (
+          <GatTrainingPage
+            mode={gatMode}
+            onReturn={handleReturnToDashboard}
+          />
+        );
+        
       default:
         return <LoginPage onLogin={handleLogin} />;
     }
   };
   
   return (
-    <div>
-      {renderView()}
-    </div>
+    <AppProvider>
+      <div className="dark:bg-gray-900 dark:text-white transition-colors duration-200">
+        {renderView()}
+      </div>
+    </AppProvider>
   );
 };
 
