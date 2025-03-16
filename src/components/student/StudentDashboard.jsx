@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { BookOpen, Clock, Award, ChevronRight, BarChart2, CheckCircle, Bell, Calendar, Info } from 'lucide-react';
-import ThemeToggle from '../common/ThemeToggle';
+import { BookOpen, Award, BookMarked, Bell, FileText, User, Book, BarChart2, Calendar, Clock, ChevronRight, Search } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 
-const StudentDashboard = ({ user, onStartExam, onLogout, onGatNavigation }) => {
-  const { t, darkMode, isRTL } = useAppContext();
+const StudentDashboard = ({ user, onStartExam, onNavigateToGat, onNavigateToGatTraining, onLogout }) => {
+  const { darkMode, t } = useAppContext();
   
   // Mock data for student information and exams
   const [studentInfo, setStudentInfo] = useState(null);
   const [availableExams, setAvailableExams] = useState([]);
   const [pastExams, setPastExams] = useState([]);
-  const [showGatOptions, setShowGatOptions] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [announcements, setAnnouncements] = useState([]);
+  const [upcomingExams, setUpcomingExams] = useState([]);
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showAllAnnouncements, setShowAllAnnouncements] = useState(false);
   
   useEffect(() => {
     // In a real application, this would fetch from an API
@@ -23,7 +25,11 @@ const StudentDashboard = ({ user, onStartExam, onLogout, onGatNavigation }) => {
         name: user.name,
         totalExamsTaken: 3,
         averageScore: 78.5,
-        lastLogin: new Date(user.loginTime).toLocaleDateString()
+        lastLogin: new Date(user.loginTime).toLocaleDateString(),
+        currentStreak: 5,
+        totalHours: 42,
+        completionRate: 87,
+        ranking: 182
       });
       
       setAvailableExams([
@@ -44,6 +50,24 @@ const StudentDashboard = ({ user, onStartExam, onLogout, onGatNavigation }) => {
           addedDate: '2025-02-15',
           duration: 90, // minutes
           questionCount: 30
+        },
+        {
+          id: 'exam003',
+          name: 'Programming Fundamentals',
+          organizer: 'Prof. Williams',
+          endDate: '2025-03-25',
+          addedDate: '2025-02-20',
+          duration: 75, // minutes
+          questionCount: 25
+        },
+        {
+          id: 'exam004',
+          name: 'Web Development Basics',
+          organizer: 'Prof. Davis',
+          endDate: '2025-04-05',
+          addedDate: '2025-02-22',
+          duration: 60, // minutes
+          questionCount: 20
         }
       ]);
       
@@ -74,360 +98,611 @@ const StudentDashboard = ({ user, onStartExam, onLogout, onGatNavigation }) => {
         }
       ]);
       
-      // Mock announcements
       setAnnouncements([
         {
           id: 'ann001',
-          title: 'GAT preparation workshops will be held this weekend',
+          title: 'New GAT Training Materials Available',
           date: '2025-03-08',
-          category: 'General',
-          isNew: true
+          content: 'We have added 500+ new practice questions for GAT Math and Arabic sections. Check out the training section to access them.',
+          isImportant: true
         },
         {
           id: 'ann002',
-          title: 'New practice exams have been added to the system',
-          date: '2025-03-07',
-          category: 'New Feature',
-          isNew: true
+          title: 'System Maintenance Scheduled',
+          date: '2025-03-12',
+          content: 'The system will be down for maintenance from 2:00 AM to 5:00 AM on March 12th. Please plan your study sessions accordingly.',
+          isImportant: false
         },
         {
           id: 'ann003',
-          title: 'System will be under maintenance on Friday night from 11 PM to 2 AM',
+          title: 'New Feature: Performance Analytics',
           date: '2025-03-05',
-          category: 'System Maintenance',
-          isNew: false
+          content: 'We have launched a new feature that provides detailed analytics of your performance by topic and question type. Visit your profile to check it out.',
+          isImportant: false
         },
         {
           id: 'ann004',
-          title: 'The new GAT Training module is now available',
+          title: 'GAT Exam Registration Open',
           date: '2025-03-01',
-          category: 'New Feature',
-          isNew: false
+          content: 'Registration for the next GAT exam (April 15th) is now open. Make sure to register before March 25th.',
+          isImportant: true
         }
       ]);
       
-      setIsLoading(false);
+      setUpcomingExams([
+        {
+          id: 'upcoming001',
+          name: 'GAT Practice Test - Math Section',
+          date: '2025-03-12',
+          timeRemaining: '2 days',
+          difficulty: 'Medium'
+        },
+        {
+          id: 'upcoming002',
+          name: 'GAT Practice Test - Arabic Section',
+          date: '2025-03-15',
+          timeRemaining: '5 days',
+          difficulty: 'Hard'
+        },
+        {
+          id: 'upcoming003',
+          name: 'Full GAT Mock Exam',
+          date: '2025-03-20',
+          timeRemaining: '10 days',
+          difficulty: 'Hard'
+        }
+      ]);
+      
+      setRecentActivity([
+        {
+          id: 'act001',
+          type: 'exam_completed',
+          name: 'Web Development Basics',
+          date: '2025-02-20',
+          score: 88
+        },
+        {
+          id: 'act002',
+          type: 'training_completed',
+          name: 'GAT Math - Geometry Practice',
+          date: '2025-02-22',
+          completedQuestions: 25
+        },
+        {
+          id: 'act003',
+          type: 'exam_scheduled',
+          name: 'GAT Practice Test - Math Section',
+          date: '2025-02-25',
+          scheduledFor: '2025-03-12'
+        }
+      ]);
+      
+      setLoading(false);
     }, 1000);
   }, [user]);
-
-  const handleGatOptionClick = (option) => {
-    if (showGatOptions === option) {
-      setShowGatOptions(null);
+  
+  // Filter exams based on search term
+  const filteredExams = availableExams.filter(exam =>
+    exam.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    exam.organizer.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  
+  // Render exam status badge
+  const renderStatusBadge = (endDate) => {
+    const today = new Date();
+    const examEndDate = new Date(endDate);
+    const daysLeft = Math.ceil((examEndDate - today) / (1000 * 60 * 60 * 24));
+    
+    if (daysLeft <= 3) {
+      return (
+        <span className={`px-2 py-1 text-xs rounded-full ${darkMode ? 'bg-red-900 text-red-200' : 'bg-red-100 text-red-800'}`}>
+          {daysLeft <= 0 ? 'Ends Today' : `${daysLeft} Days Left`}
+        </span>
+      );
+    } else if (daysLeft <= 7) {
+      return (
+        <span className={`px-2 py-1 text-xs rounded-full ${darkMode ? 'bg-yellow-900 text-yellow-200' : 'bg-yellow-100 text-yellow-800'}`}>
+          {daysLeft} Days Left
+        </span>
+      );
     } else {
-      setShowGatOptions(option);
+      return (
+        <span className={`px-2 py-1 text-xs rounded-full ${darkMode ? 'bg-green-900 text-green-200' : 'bg-green-100 text-green-800'}`}>
+          Open
+        </span>
+      );
     }
   };
-
-  const getCategoryColor = (category) => {
-    switch(category) {
-      case 'Urgent':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100';
-      case 'New Feature':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100';
-      case 'System Maintenance':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100';
-      default:
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100';
-    }
+  
+  // Handle clicking on an upcoming exam
+  const handleUpcomingExamClick = (examId) => {
+    // In a real application, this would navigate to the exam details or start the exam
+    // For now, we'll just show an alert
+    alert(`Starting exam ${examId}`);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
-      {/* Header with animated gradient border bottom */}
-      <header className="bg-white dark:bg-gray-800 shadow-md relative">
-        <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 via-purple-500 to-blue-600"></div>
-        <div className="max-w-7xl mx-auto px-4 py-5 sm:px-6 lg:px-8 flex justify-between items-center">
+    <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
+      {/* Header */}
+      <header className={`${darkMode ? 'bg-gray-800 shadow-gray-700/20' : 'bg-white shadow-gray-200/50'} shadow-lg`}>
+        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
           <div className="flex items-center">
-            <div className="bg-blue-600 rounded-full w-10 h-10 flex items-center justify-center text-white font-bold text-lg mr-3">
-              E
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t("Student Dashboard")}</h1>
+            <BookOpen className={`h-8 w-8 ${darkMode ? 'text-blue-400' : 'text-blue-600'} mr-3`} />
+            <h1 className="text-2xl font-bold">{t.dashboard}</h1>
           </div>
           <div className="flex items-center space-x-4">
-            <ThemeToggle />
-            <div className="mr-4 text-gray-700 dark:text-gray-200 flex items-center">
-              <div className="w-8 h-8 bg-blue-100 dark:bg-blue-700 rounded-full flex items-center justify-center mr-2">
-                {user.name.charAt(0).toUpperCase()}
-              </div>
-              <span>
-                {t("Welcome")}, <span className="font-medium">{user.name}</span>
-              </span>
+            <div className="relative">
+              <Bell className={`h-6 w-6 ${darkMode ? 'text-gray-300' : 'text-gray-600'} cursor-pointer hover:text-blue-500 transition-colors duration-200`} />
+              <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500"></span>
             </div>
+            <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-semibold">
+              {user.name.charAt(0).toUpperCase()}
+            </div>
+            <span className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+              {t.welcome}, {user.name}
+            </span>
             <button
               onClick={onLogout}
-              className="bg-red-600 hover:bg-red-700 transition-colors duration-200 text-white px-4 py-2 rounded-md text-sm shadow-sm hover:shadow-md"
+              className={`${darkMode ? 'bg-red-600 hover:bg-red-700' : 'bg-red-600 hover:bg-red-700'} text-white px-3 py-1 rounded-md text-sm transition-colors duration-200`}
             >
-              {t("Logout")}
+              {t.logout}
             </button>
           </div>
         </div>
       </header>
       
-      {/* Main content with improved spacing and animations */}
-      <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Left sidebar - Student info and past exams */}
-          <div className="md:col-span-1 space-y-8">
-            {/* Student info card with improved styling */}
-            <div className="bg-white dark:bg-gray-800 shadow-lg rounded-xl overflow-hidden transform transition-all duration-300 hover:shadow-xl">
-              <div className="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-800 dark:to-blue-900 px-6 py-4">
-                <h2 className="text-lg font-semibold text-white">{t("Student Information")}</h2>
-              </div>
-              {isLoading ? (
-                <div className="animate-pulse p-6">
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-4"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-4"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6 mb-4"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3 mb-4"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/5"></div>
-                </div>
-              ) : (
-                <div className="p-6 divide-y divide-gray-200 dark:divide-gray-700">
-                  <div className="pb-4 flex justify-between items-center">
-                    <div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{t("ID")}</p>
-                      <p className="font-medium dark:text-white">{studentInfo.id}</p>
-                    </div>
-                    <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
-                      <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                        {studentInfo.name.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="py-4">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{t("Name")}</p>
-                    <p className="font-medium dark:text-white">{studentInfo.name}</p>
-                  </div>
-                  <div className="py-4 grid grid-cols-2 gap-4">
-                    <div className="flex items-center">
-                      <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-full mr-3">
-                        <BookOpen className="h-4 w-4 text-blue-600 dark:text-blue-300" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{t("Exams Taken")}</p>
-                        <p className="font-semibold dark:text-white">{studentInfo.totalExamsTaken}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="p-2 bg-green-100 dark:bg-green-900 rounded-full mr-3">
-                        <Award className="h-4 w-4 text-green-600 dark:text-green-300" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{t("Avg. Score")}</p>
-                        <p className="font-semibold dark:text-white">{studentInfo.averageScore}%</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="pt-4 flex items-center">
-                    <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-full mr-3">
-                      <Clock className="h-4 w-4 text-purple-600 dark:text-purple-300" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{t("Last Login")}</p>
-                      <p className="font-semibold dark:text-white">{studentInfo.lastLogin}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
+      {/* Main content */}
+      <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+        {/* Welcome section */}
+        <div className={`${darkMode ? 'bg-gradient-to-r from-blue-900 to-purple-900' : 'bg-gradient-to-r from-blue-500 to-purple-600'} rounded-lg shadow-lg p-6 mb-6 text-white`}>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+            <div>
+              <h2 className="text-2xl font-bold mb-2">Welcome back, {user.name}!</h2>
+              <p className="text-blue-100">Continue your preparation for the upcoming GAT exam. You've completed {studentInfo?.totalExamsTaken || 0} exams so far.</p>
             </div>
-            
-            {/* Past exams with enhanced styling */}
-            <div className="bg-white dark:bg-gray-800 shadow-lg rounded-xl overflow-hidden transform transition-all duration-300 hover:shadow-xl">
-              <div className="bg-gradient-to-r from-purple-600 to-purple-700 dark:from-purple-800 dark:to-purple-900 px-6 py-4">
-                <h2 className="text-lg font-semibold text-white">{t("Past Exams")}</h2>
-              </div>
-              {isLoading ? (
-                <div className="animate-pulse p-6 space-y-4">
-                  <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                  <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                  <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                </div>
-              ) : pastExams.length > 0 ? (
-                <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {pastExams.map(exam => (
-                    <li key={exam.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150">
-                      <div className="p-4 flex justify-between">
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">{exam.name}</p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">{t("Date")}: {exam.date}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className={`font-bold ${
-                            exam.score >= 80 ? 'text-green-600 dark:text-green-400' : 
-                            exam.score >= 70 ? 'text-yellow-600 dark:text-yellow-400' : 
-                            'text-red-600 dark:text-red-400'
-                          }`}>
-                            {exam.score}%
-                          </p>
-                          <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 justify-end">
-                            <CheckCircle className="h-3 w-3 mr-1 text-green-500 dark:text-green-400" />
-                            <span>
-                              {exam.correctAnswers}/{exam.totalQuestions} {t("correct")}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="p-8 text-center">
-                  <p className="text-gray-500 dark:text-gray-400">{t("No past exams found")}</p>
-                </div>
-              )}
+            <div className="mt-4 md:mt-0 flex space-x-2">
+              <button
+                onClick={onNavigateToGat}
+                className="px-4 py-2 bg-white text-blue-700 rounded-md font-medium hover:bg-blue-50 transition-colors duration-200"
+              >
+                Start GAT Exam
+              </button>
+              <button
+                onClick={onNavigateToGatTraining}
+                className="px-4 py-2 bg-blue-800 text-white rounded-md font-medium hover:bg-blue-700 transition-colors duration-200"
+              >
+                Continue Training
+              </button>
             </div>
-            
-            {/* GAT Training with animated dropdown */}
-            <div className="bg-white dark:bg-gray-800 shadow-lg rounded-xl overflow-hidden transform transition-all duration-300 hover:shadow-xl">
-              <div className="bg-gradient-to-r from-blue-500 to-indigo-600 dark:from-blue-700 dark:to-indigo-800 px-6 py-4">
-                <h2 className="text-lg font-semibold text-white">{t("GAT Training")}</h2>
-              </div>
-              <div className="p-4 space-y-3">
-                <p className="text-gray-600 dark:text-gray-300 mb-4">
-                  {t("Prepare for your General Aptitude Test with our specialized training modules.")}
-                </p>
-                <div className="space-y-3">
-                  {/* Math Button + Dropdown Options */}
-                  <div>
-                    <button 
-                      onClick={() => handleGatOptionClick('math')}
-                      className={`w-full py-3 px-4 rounded-lg flex justify-between items-center transition-colors duration-200 ${
-                        showGatOptions === 'math' 
-                          ? 'bg-blue-50 text-blue-700 border-2 border-blue-200 dark:bg-blue-900 dark:text-blue-100 dark:border-blue-700' 
-                          : 'bg-gray-100 hover:bg-gray-200 text-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100'
-                      }`}
-                    >
-                      <span className="font-medium">{t("Mathematics")}</span>
-                      <ChevronRight className={`w-5 h-5 transition-transform duration-200 ${showGatOptions === 'math' ? 'transform rotate-90' : ''}`} />
-                    </button>
-                    
-                    {/* Math Training Options Dropdown */}
-                    <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                      showGatOptions === 'math' ? 'max-h-24 opacity-100 mt-2' : 'max-h-0 opacity-0'
-                    }`}>
-                      <div className="grid grid-cols-2 gap-2 px-2">
-                        <button 
-                          onClick={() => onGatNavigation('math', 'train')}
-                          className="py-2 px-4 bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 text-white rounded-md transition-colors duration-200 flex items-center justify-center"
-                        >
-                          <BarChart2 className="w-4 h-4 mr-2" />
-                          {t("Train")}
-                        </button>
-                        <button 
-                          onClick={() => onGatNavigation('math', 'exam')}
-                          className="py-2 px-4 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-md transition-colors duration-200 flex items-center justify-center"
-                        >
-                          <BookOpen className="w-4 h-4 mr-2" />
-                          {t("Exam")}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Arabic Button + Dropdown Options */}
-                  <div>
-                    <button 
-                      onClick={() => handleGatOptionClick('arabic')}
-                      className={`w-full py-3 px-4 rounded-lg flex justify-between items-center transition-colors duration-200 ${
-                        showGatOptions === 'arabic' 
-                          ? 'bg-blue-50 text-blue-700 border-2 border-blue-200 dark:bg-blue-900 dark:text-blue-100 dark:border-blue-700' 
-                          : 'bg-gray-100 hover:bg-gray-200 text-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100'
-                      }`}
-                    >
-                      <span className="font-medium">{t("Arabic")}</span>
-                      <ChevronRight className={`w-5 h-5 transition-transform duration-200 ${showGatOptions === 'arabic' ? 'transform rotate-90' : ''}`} />
-                    </button>
-                    
-                    {/* Arabic Training Options Dropdown */}
-                    <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                      showGatOptions === 'arabic' ? 'max-h-24 opacity-100 mt-2' : 'max-h-0 opacity-0'
-                    }`}>
-                      <div className="grid grid-cols-2 gap-2 px-2">
-                        <button 
-                          onClick={() => onGatNavigation('arabic', 'train')}
-                          className="py-2 px-4 bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 text-white rounded-md transition-colors duration-200 flex items-center justify-center"
-                        >
-                          <BarChart2 className="w-4 h-4 mr-2" />
-                          {t("Train")}
-                        </button>
-                        <button 
-                          onClick={() => onGatNavigation('arabic', 'exam')}
-                          className="py-2 px-4 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-md transition-colors duration-200 flex items-center justify-center"
-                        >
-                          <BookOpen className="w-4 h-4 mr-2" />
-                          {t("Exam")}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+          </div>
+        </div>
+        
+        {/* Stats cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-md p-4 flex items-center`}>
+            <div className={`p-3 rounded-full ${darkMode ? 'bg-blue-900/30' : 'bg-blue-100'} mr-4`}>
+              <BarChart2 className={`h-5 w-5 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+            </div>
+            <div>
+              <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Average Score</p>
+              <p className="text-xl font-semibold">{studentInfo?.averageScore || 0}%</p>
             </div>
           </div>
           
-          {/* Main content area - Available exams and announcements */}
-          <div className="md:col-span-2 space-y-8">
-            {/* Available Exams */}
-            <div className="bg-white dark:bg-gray-800 shadow-lg rounded-xl overflow-hidden">
-              <div className="bg-gradient-to-r from-green-600 to-green-700 dark:from-green-700 dark:to-green-800 px-6 py-4">
-                <h2 className="text-lg font-semibold text-white">{t("Available Exams")}</h2>
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-md p-4 flex items-center`}>
+            <div className={`p-3 rounded-full ${darkMode ? 'bg-green-900/30' : 'bg-green-100'} mr-4`}>
+              <Calendar className={`h-5 w-5 ${darkMode ? 'text-green-400' : 'text-green-600'}`} />
+            </div>
+            <div>
+              <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Current Streak</p>
+              <p className="text-xl font-semibold">{studentInfo?.currentStreak || 0} days</p>
+            </div>
+          </div>
+          
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-md p-4 flex items-center`}>
+            <div className={`p-3 rounded-full ${darkMode ? 'bg-purple-900/30' : 'bg-purple-100'} mr-4`}>
+              <Clock className={`h-5 w-5 ${darkMode ? 'text-purple-400' : 'text-purple-600'}`} />
+            </div>
+            <div>
+              <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Total Study Time</p>
+              <p className="text-xl font-semibold">{studentInfo?.totalHours || 0} hours</p>
+            </div>
+          </div>
+          
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-md p-4 flex items-center`}>
+            <div className={`p-3 rounded-full ${darkMode ? 'bg-yellow-900/30' : 'bg-yellow-100'} mr-4`}>
+              <User className={`h-5 w-5 ${darkMode ? 'text-yellow-400' : 'text-yellow-600'}`} />
+            </div>
+            <div>
+              <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Your Ranking</p>
+              <p className="text-xl font-semibold">#{studentInfo?.ranking || 0}</p>
+            </div>
+          </div>
+        </div>
+        
+        {/* GAT options */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div 
+            onClick={onNavigateToGat}
+            className={`${darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-white hover:bg-gray-50'} rounded-lg shadow-md p-6 cursor-pointer transition-colors duration-200 flex`}
+          >
+            <div className={`${darkMode ? 'bg-blue-900/50' : 'bg-blue-100'} p-4 rounded-lg mr-4`}>
+              <Award className={`h-8 w-8 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold mb-2">{t.gatExam}</h2>
+              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'} mb-4`}>
+                Take practice exams for the General Aptitude Test (GAT) in Math and Arabic sections.
+              </p>
+              <button 
+                className={`inline-flex items-center px-4 py-2 rounded-md ${
+                  darkMode
+                    ? 'bg-blue-600 hover:bg-blue-500'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                } text-white text-sm font-medium transition-colors duration-200 group`}
+              >
+                Start GAT Exam
+                <ChevronRight className="ml-1 h-4 w-4 group-hover:translate-x-0.5 transition-transform duration-200" />
+              </button>
+            </div>
+          </div>
+          
+          <div 
+            onClick={onNavigateToGatTraining}
+            className={`${darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-white hover:bg-gray-50'} rounded-lg shadow-md p-6 cursor-pointer transition-colors duration-200 flex`}
+          >
+            <div className={`${darkMode ? 'bg-green-900/50' : 'bg-green-100'} p-4 rounded-lg mr-4`}>
+              <BookMarked className={`h-8 w-8 ${darkMode ? 'text-green-400' : 'text-green-600'}`} />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold mb-2">{t.gatTraining}</h2>
+              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'} mb-4`}>
+                Sharpen your skills with targeted practice exercises and tutorials.
+              </p>
+              <button 
+                className={`inline-flex items-center px-4 py-2 rounded-md ${
+                  darkMode
+                    ? 'bg-green-600 hover:bg-green-500'
+                    : 'bg-green-600 hover:bg-green-700'
+                } text-white text-sm font-medium transition-colors duration-200 group`}
+              >
+                Begin Training
+                <ChevronRight className="ml-1 h-4 w-4 group-hover:translate-x-0.5 transition-transform duration-200" />
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        {/* Announcements and Upcoming Exams */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          {/* Announcements */}
+          <div className="md:col-span-2">
+            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-md p-4`}>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-bold">Announcements</h2>
+                <button 
+                  className={`text-sm ${darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'}`}
+                  onClick={() => setShowAllAnnouncements(!showAllAnnouncements)}
+                >
+                  {showAllAnnouncements ? 'Show Less' : 'View All'}
+                </button>
               </div>
               
-              {isLoading ? (
-                <div className="p-6 animate-pulse space-y-4">
-                  <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
-                  <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+              {loading ? (
+                <div className="animate-pulse space-y-3">
+                  <div className="h-20 bg-gray-200 rounded w-full"></div>
+                  <div className="h-20 bg-gray-200 rounded w-full"></div>
                 </div>
-              ) : availableExams.length > 0 ? (
+              ) : (
+                <div className="space-y-3">
+                  {(showAllAnnouncements ? announcements : announcements.slice(0, 2)).map(announcement => (
+                    <div 
+                      key={announcement.id} 
+                      className={`p-3 rounded-lg ${
+                        announcement.isImportant
+                          ? darkMode 
+                            ? 'bg-red-900/20 border border-red-800'
+                            : 'bg-red-50 border border-red-200'
+                          : darkMode
+                            ? 'bg-gray-700'
+                            : 'bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <h3 className={`font-medium ${
+                          announcement.isImportant
+                            ? darkMode ? 'text-red-300' : 'text-red-700'
+                            : ''
+                        }`}>
+                          {announcement.title}
+                          {announcement.isImportant && (
+                            <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
+                              darkMode ? 'bg-red-800 text-red-200' : 'bg-red-100 text-red-800'
+                            }`}>
+                              Important
+                            </span>
+                          )}
+                        </h3>
+                        <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                          {announcement.date}
+                        </span>
+                      </div>
+                      <p className={`mt-1 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                        {announcement.content}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Upcoming Exams */}
+          <div className="md:col-span-1">
+            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-md p-4`}>
+              <h2 className="text-lg font-bold mb-4">Upcoming Exams</h2>
+              
+              {loading ? (
+                <div className="animate-pulse space-y-3">
+                  <div className="h-16 bg-gray-200 rounded w-full"></div>
+                  <div className="h-16 bg-gray-200 rounded w-full"></div>
+                </div>
+              ) : upcomingExams.length > 0 ? (
+                <div className="space-y-3">
+                  {upcomingExams.map(exam => (
+                    <div 
+                      key={exam.id}
+                      onClick={() => handleUpcomingExamClick(exam.id)}
+                      className={`p-3 rounded-lg ${
+                        darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-50 hover:bg-gray-100'
+                      } cursor-pointer transition-colors duration-200`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <h3 className="font-medium">{exam.name}</h3>
+                        <span className={`px-2 py-0.5 text-xs rounded-full ${
+                          exam.difficulty === 'Easy'
+                            ? darkMode ? 'bg-green-900 text-green-200' : 'bg-green-100 text-green-800'
+                            : exam.difficulty === 'Medium'
+                              ? darkMode ? 'bg-yellow-900 text-yellow-200' : 'bg-yellow-100 text-yellow-800'
+                              : darkMode ? 'bg-red-900 text-red-200' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {exam.difficulty}
+                        </span>
+                      </div>
+                      <div className="mt-2 flex justify-between items-center">
+                        <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                          {exam.date}
+                        </span>
+                        <span className={`text-xs font-medium ${
+                          parseInt(exam.timeRemaining) <= 2
+                            ? darkMode ? 'text-red-400' : 'text-red-600'
+                            : darkMode ? 'text-blue-400' : 'text-blue-600'
+                        }`}>
+                          {exam.timeRemaining} remaining
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className={`text-center py-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  No upcoming exams scheduled
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {/* Main content grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Left sidebar - Student info and recent activity */}
+          <div className="md:col-span-1">
+            {/* Student info card */}
+            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow rounded-lg mb-6 p-4`}>
+              <div className="flex items-center mb-4">
+                <div className="h-12 w-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-semibold text-xl mr-3">
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <h2 className="text-lg font-medium">{user.name}</h2>
+                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Student ID: {user.id}</p>
+                </div>
+              </div>
+              
+              {studentInfo ? (
+                <div className="space-y-3">
+                  <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <div className="flex justify-between">
+                      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Exams Taken</p>
+                      <p className="font-medium">{studentInfo.totalExamsTaken}</p>
+                    </div>
+                  </div>
+                  
+                  <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <div className="flex justify-between">
+                      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Average Score</p>
+                      <p className="font-medium">{studentInfo.averageScore}%</p>
+                    </div>
+                  </div>
+                  
+                  <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <div className="flex justify-between">
+                      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Completion Rate</p>
+                      <p className="font-medium">{studentInfo.completionRate}%</p>
+                    </div>
+                  </div>
+                  
+                  <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <div className="flex justify-between">
+                      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Last Login</p>
+                      <p className="font-medium">{studentInfo.lastLogin}</p>
+                    </div>
+                  </div>
+                  
+                  <button 
+                    className={`w-full mt-2 py-2 px-4 rounded-md text-sm font-medium ${
+                      darkMode 
+                        ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' 
+                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                    } transition-colors duration-200`}
+                  >
+                    View Full Profile
+                  </button>
+                </div>
+              ) : (
+                <div className="animate-pulse space-y-3">
+                  <div className="h-8 bg-gray-200 rounded w-full"></div>
+                  <div className="h-8 bg-gray-200 rounded w-full"></div>
+                  <div className="h-8 bg-gray-200 rounded w-full"></div>
+                </div>
+              )}
+            </div>
+            
+            {/* Recent Activity */}
+            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow rounded-lg p-4`}>
+              <h2 className="text-lg font-bold mb-4">Recent Activity</h2>
+              
+              {loading ? (
+                <div className="animate-pulse space-y-3">
+                  <div className="h-16 bg-gray-200 rounded w-full"></div>
+                  <div className="h-16 bg-gray-200 rounded w-full"></div>
+                  <div className="h-16 bg-gray-200 rounded w-full"></div>
+                </div>
+              ) : recentActivity.length > 0 ? (
+                <div className={`space-y-3 ${darkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
+                  {recentActivity.map(activity => (
+                    <div 
+                      key={activity.id} 
+                      className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}
+                    >
+                      <div className="flex items-start">
+                        <div className={`p-2 rounded-md ${
+                          activity.type === 'exam_completed'
+                            ? darkMode ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-600'
+                            : activity.type === 'training_completed'
+                              ? darkMode ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-600'
+                              : darkMode ? 'bg-purple-900/30 text-purple-400' : 'bg-purple-100 text-purple-600'
+                        } mr-3`}>
+                          {activity.type === 'exam_completed' ? (
+                            <FileText className="h-5 w-5" />
+                          ) : activity.type === 'training_completed' ? (
+                            <Book className="h-5 w-5" />
+                          ) : (
+                            <Calendar className="h-5 w-5" />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex justify-between">
+                            <h3 className="font-medium">{activity.name}</h3>
+                            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                              {activity.date}
+                            </span>
+                          </div>
+                          <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            {activity.type === 'exam_completed' ? (
+                              <>Completed with score: <span className="font-medium">{activity.score}%</span></>
+                            ) : activity.type === 'training_completed' ? (
+                              <>Completed {activity.completedQuestions} practice questions</>
+                            ) : (
+                              <>Scheduled for {activity.scheduledFor}</>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className={`text-center py-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  No recent activity
+                </p>
+              )}
+            </div>
+          </div>
+          
+          {/* Main content area - Available exams */}
+          <div className="md:col-span-2">
+            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow rounded-lg p-4`}>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-bold">{t.availableExams}</h2>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search exams..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className={`pl-9 pr-4 py-2 text-sm rounded-md ${
+                      darkMode 
+                        ? 'bg-gray-700 border-gray-600 placeholder-gray-400 text-white focus:border-blue-500' 
+                        : 'border-gray-300 placeholder-gray-500 text-gray-900 focus:border-blue-500'
+                    } border focus:outline-none focus:ring-1 focus:ring-blue-500`}
+                  />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Search className={`h-4 w-4 ${darkMode ? 'text-gray-400' : 'text-gray-400'}`} />
+                  </div>
+                </div>
+              </div>
+              
+              {loading ? (
+                <div className="animate-pulse space-y-4">
+                  <div className="h-16 bg-gray-200 rounded w-full"></div>
+                  <div className="h-16 bg-gray-200 rounded w-full"></div>
+                  <div className="h-16 bg-gray-200 rounded w-full"></div>
+                  <div className="h-16 bg-gray-200 rounded w-full"></div>
+                </div>
+              ) : filteredExams.length > 0 ? (
                 <div className="overflow-hidden">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <thead className="bg-gray-50 dark:bg-gray-900">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
                       <tr>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          {t("Exam Name")}
+                        <th scope="col" className={`px-6 py-3 text-left text-xs font-medium ${darkMode ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}>
+                          {t.examName}
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          {t("Organizer")}
+                        <th scope="col" className={`px-6 py-3 text-left text-xs font-medium ${darkMode ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}>
+                          {t.organizer}
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          {t("End Date")}
+                        <th scope="col" className={`px-6 py-3 text-left text-xs font-medium ${darkMode ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}>
+                          Status
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          {t("Duration")}
+                        <th scope="col" className={`px-6 py-3 text-left text-xs font-medium ${darkMode ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}>
+                          Duration
                         </th>
                         <th scope="col" className="relative px-6 py-3">
-                          <span className="sr-only">{t("Actions")}</span>
+                          <span className="sr-only">{t.actions}</span>
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                      {availableExams.map(exam => (
-                        <tr key={exam.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150">
+                    <tbody className={`${darkMode ? 'bg-gray-800 divide-gray-700' : 'bg-white divide-gray-200'} divide-y`}>
+                      {filteredExams.map(exam => (
+                        <tr key={exam.id} className={darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900 dark:text-white">{exam.name}</div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
-                              {exam.questionCount} {t("questions")}
+                            <div className="font-medium">{exam.name}</div>
+                            <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                              {exam.questionCount} questions
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-500 dark:text-gray-400">{exam.organizer}</div>
+                            <div className={`${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>{exam.organizer}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-500 dark:text-gray-400">{exam.endDate}</div>
+                            {renderStatusBadge(exam.endDate)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
-                              <Clock className="h-4 w-4 mr-1 text-gray-400 dark:text-gray-500" />
-                              <span>{exam.duration} min</span>
+                            <div className="flex items-center">
+                              <Clock className={`h-4 w-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-1`} />
+                              <span className={`${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>{exam.duration} min</span>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <button
                               onClick={() => onStartExam(exam)}
-                              className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white rounded-md transition-colors duration-200 shadow-sm hover:shadow"
+                              className={`${
+                                darkMode 
+                                  ? 'bg-blue-600 hover:bg-blue-500' 
+                                  : 'bg-blue-600 hover:bg-blue-700'
+                              } text-white px-4 py-2 rounded-md transition-colors duration-200`}
                             >
-                              <span>{t("Start")}</span>
-                              <ChevronRight className="ml-1 h-4 w-4" />
+                              {t.start}
                             </button>
                           </td>
                         </tr>
@@ -436,93 +711,71 @@ const StudentDashboard = ({ user, onStartExam, onLogout, onGatNavigation }) => {
                   </table>
                 </div>
               ) : (
-                <div className="py-12 text-center">
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 mb-4">
-                    <BookOpen className="h-8 w-8 text-gray-400 dark:text-gray-500" />
-                  </div>
-                  <p className="text-gray-500 dark:text-gray-400">{t("No available exams at the moment")}</p>
-                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">{t("Check back later for upcoming exams")}</p>
+                <div className="py-10 text-center">
+                  <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    {searchTerm ? 'No exams found matching your search' : 'No available exams at the moment'}
+                  </p>
                 </div>
               )}
-              
-              {/* Tips and guidance section */}
-              <div className="bg-blue-50 dark:bg-blue-900 p-6 mt-4 border-t border-blue-100 dark:border-blue-800">
-                <h3 className="text-md font-medium text-blue-800 dark:text-blue-100 mb-3">{t("Tips for Success")}</h3>
-                <ul className="space-y-2 text-sm text-blue-700 dark:text-blue-200">
-                  <li className="flex items-start">
-                    <div className="flex-shrink-0 h-5 w-5 relative mt-1">
-                      <div className="absolute inset-0 bg-blue-200 dark:bg-blue-700 rounded-full opacity-50"></div>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="h-2 w-2 bg-blue-600 dark:bg-blue-300 rounded-full"></div>
-                      </div>
-                    </div>
-                    <p className="ml-2">{t("Read all instructions carefully before starting an exam")}</p>
-                  </li>
-                  <li className="flex items-start">
-                    <div className="flex-shrink-0 h-5 w-5 relative mt-1">
-                      <div className="absolute inset-0 bg-blue-200 dark:bg-blue-700 rounded-full opacity-50"></div>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="h-2 w-2 bg-blue-600 dark:bg-blue-300 rounded-full"></div>
-                      </div>
-                    </div>
-                    <p className="ml-2">{t("Make sure you have a stable internet connection")}</p>
-                  </li>
-                  <li className="flex items-start">
-                    <div className="flex-shrink-0 h-5 w-5 relative mt-1">
-                      <div className="absolute inset-0 bg-blue-200 dark:bg-blue-700 rounded-full opacity-50"></div>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="h-2 w-2 bg-blue-600 dark:bg-blue-300 rounded-full"></div>
-                      </div>
-                    </div>
-                    <p className="ml-2">{t("Use the GAT Training modules to prepare for your exams")}</p>
-                  </li>
-                </ul>
-              </div>
             </div>
             
-            {/* Announcements Section */}
-            <div className="bg-white dark:bg-gray-800 shadow-lg rounded-xl overflow-hidden">
-              <div className="bg-gradient-to-r from-yellow-500 to-orange-500 dark:from-yellow-700 dark:to-orange-700 px-6 py-4 flex justify-between items-center">
-                <h2 className="text-lg font-semibold text-white">{t("Announcements")}</h2>
-                <Bell className="h-5 w-5 text-white" />
-              </div>
+            {/* Past exams */}
+            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow rounded-lg p-4 mt-6`}>
+              <h2 className="text-lg font-bold mb-4">{t.pastExams}</h2>
               
-              {isLoading ? (
-                <div className="p-6 animate-pulse space-y-4">
-                  <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
-                  <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
-                  <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+              {loading ? (
+                <div className="animate-pulse space-y-3">
+                  <div className="h-16 bg-gray-200 rounded w-full"></div>
+                  <div className="h-16 bg-gray-200 rounded w-full"></div>
+                  <div className="h-16 bg-gray-200 rounded w-full"></div>
                 </div>
-              ) : (
-                <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {announcements.map(announcement => (
-                    <div key={announcement.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200">
-                      <div className="flex justify-between mb-2">
-                        <div className="flex items-center">
-                          <span className={`px-2 py-1 text-xs font-medium rounded-md mr-2 ${getCategoryColor(announcement.category)}`}>
-                            {t(announcement.category)}
-                          </span>
-                          {announcement.isNew && (
-                            <span className="px-2 py-1 text-xs font-medium rounded-md bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100 animate-pulse-slow">
-                              {t("New")}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
-                          <Calendar className="h-3 w-3 mr-1" />
-                          {announcement.date}
-                        </div>
+              ) : pastExams.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {pastExams.map(exam => (
+                    <div 
+                      key={exam.id} 
+                      className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg p-4`}
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <h3 className="font-medium">{exam.name}</h3>
+                        <span className={`font-bold text-lg ${
+                          exam.score >= 80 ? 'text-green-600' : 
+                          exam.score >= 70 ? 'text-yellow-600' : 
+                          'text-red-600'
+                        }`}>
+                          {exam.score}%
+                        </span>
                       </div>
-                      <p className="text-gray-800 dark:text-gray-200 mb-2">{t(announcement.title)}</p>
-                      <div className="flex justify-end">
-                        <button className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm flex items-center">
-                          <Info className="h-3 w-3 mr-1" />
-                          {t("Read more")}
+                      <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-2`}>
+                        Date: {exam.date}
+                      </div>
+                      <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-3`}>
+                        {exam.correctAnswers}/{exam.totalQuestions} correct answers
+                      </div>
+                      <div className="h-2 w-full bg-gray-300 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full ${
+                            exam.score >= 80 ? 'bg-green-600' : 
+                            exam.score >= 70 ? 'bg-yellow-600' : 
+                            'bg-red-600'
+                          }`}
+                          style={{ width: `${exam.score}%` }}
+                        ></div>
+                      </div>
+                      <div className="mt-3 text-center">
+                        <button className={`text-sm ${
+                          darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'
+                        }`}>
+                          View Details
                         </button>
                       </div>
                     </div>
                   ))}
                 </div>
+              ) : (
+                <p className={`text-center py-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  {t.noPastExams}
+                </p>
               )}
             </div>
           </div>

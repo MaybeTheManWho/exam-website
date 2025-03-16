@@ -1,536 +1,364 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Plus, Edit, Trash2, Save, X, Calendar, Tag, MessageSquare,
-  AlertTriangle, Info, Check, Bell, ChevronDown, ChevronUp
-} from 'lucide-react';
+import { PlusCircle, Edit2, Trash2, Search, Newspaper, AlertCircle, Check } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 
-// Mock initial announcements data
-const initialAnnouncements = [
-  {
-    id: '1',
-    title: 'GAT preparation workshops will be held this weekend',
-    content: 'We are hosting a series of GAT preparation workshops this weekend. The sessions will cover key topics and strategies for success. Register now to secure your spot!',
-    date: '2025-03-08',
-    category: 'General',
-    isPublished: true,
-    isNew: true,
-    author: 'Admin'
-  },
-  {
-    id: '2',
-    title: 'New practice exams have been added to the system',
-    content: 'We have added several new practice exams to the system. These cover a wide range of topics and difficulty levels to help you prepare for your upcoming tests.',
-    date: '2025-03-07',
-    category: 'New Feature',
-    isPublished: true,
-    isNew: true,
-    author: 'Admin'
-  },
-  {
-    id: '3',
-    title: 'System will be under maintenance on Friday night from 11 PM to 2 AM',
-    content: 'Our system will be undergoing scheduled maintenance this Friday night from 11 PM to 2 AM. During this time, the platform may be temporarily unavailable. We apologize for any inconvenience this may cause.',
-    date: '2025-03-05',
-    category: 'System Maintenance',
-    isPublished: true,
-    isNew: false,
-    author: 'System'
-  },
-  {
-    id: '4',
-    title: 'The new GAT Training module is now available',
-    content: 'We are excited to announce that our new GAT Training module is now available! This comprehensive module includes practice questions, study guides, and performance tracking to help you excel in your exams.',
-    date: '2025-03-01',
-    category: 'New Feature',
-    isPublished: true,
-    isNew: false,
-    author: 'Admin'
-  },
-  {
-    id: '5',
-    title: 'Draft announcement - not published',
-    content: 'This is a draft announcement that has not been published yet. Only administrators can see this.',
-    date: '2025-03-10',
-    category: 'General',
-    isPublished: false,
-    isNew: false,
-    author: 'Admin'
-  }
-];
-
 const NewsManagementTab = () => {
-  const { t } = useAppContext();
-  const [announcements, setAnnouncements] = useState(initialAnnouncements);
-  const [filter, setFilter] = useState('all'); // 'all', 'published', 'drafts'
-  const [sort, setSort] = useState('newest'); // 'newest', 'oldest'
+  const { darkMode, t } = useAppContext();
+  
+  const [announcements, setAnnouncements] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [newAnnouncement, setNewAnnouncement] = useState({ title: '', content: '', isImportant: false });
   const [editingId, setEditingId] = useState(null);
-  const [expandedId, setExpandedId] = useState(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   
-  // Form state for editing/creating announcements
-  const [formData, setFormData] = useState({
-    title: '',
-    content: '',
-    category: 'General',
-    isPublished: true,
-    isNew: true
-  });
+  // Load announcements
+  useEffect(() => {
+    // Simulate API call
+    setTimeout(() => {
+      setAnnouncements([
+        {
+          id: 'ann001',
+          title: 'New GAT Training Materials Available',
+          date: '2025-03-08',
+          content: 'We have added 500+ new practice questions for GAT Math and Arabic sections. Check out the training section to access them.',
+          isImportant: true
+        },
+        {
+          id: 'ann002',
+          title: 'System Maintenance Scheduled',
+          date: '2025-03-12',
+          content: 'The system will be down for maintenance from 2:00 AM to 5:00 AM on March 12th. Please plan your study sessions accordingly.',
+          isImportant: false
+        },
+        {
+          id: 'ann003',
+          title: 'New Feature: Performance Analytics',
+          date: '2025-03-05',
+          content: 'We have launched a new feature that provides detailed analytics of your performance by topic and question type. Visit your profile to check it out.',
+          isImportant: false
+        },
+        {
+          id: 'ann004',
+          title: 'GAT Exam Registration Open',
+          date: '2025-03-01',
+          content: 'Registration for the next GAT exam (April 15th) is now open. Make sure to register before March 25th.',
+          isImportant: true
+        }
+      ]);
+      setLoading(false);
+    }, 1000);
+  }, []);
   
-  // Available announcement categories
-  const categories = [
-    'General',
-    'Urgent',
-    'System Maintenance',
-    'New Feature',
-    'Exam Updates'
-  ];
-  
-  // Toggle announcement expansion
-  const toggleExpand = (id) => {
-    setExpandedId(expandedId === id ? null : id);
-  };
-  
-  // Handle starting to create a new announcement
-  const handleNewAnnouncement = () => {
-    setEditingId('new');
-    setFormData({
-      title: '',
-      content: '',
-      category: 'General',
-      isPublished: true,
-      isNew: true
-    });
-  };
-  
-  // Handle starting to edit an announcement
-  const handleEditAnnouncement = (announcement) => {
-    setEditingId(announcement.id);
-    setFormData({
-      title: announcement.title,
-      content: announcement.content,
-      category: announcement.category,
-      isPublished: announcement.isPublished,
-      isNew: announcement.isNew
-    });
-  };
-  
-  // Handle canceling edit/create
-  const handleCancelEdit = () => {
-    setEditingId(null);
-  };
+  // Filter announcements by search term
+  const filteredAnnouncements = announcements.filter(announcement => 
+    announcement.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    announcement.content.toLowerCase().includes(searchTerm.toLowerCase())
+  );
   
   // Handle form input changes
-  const handleInputChange = (field, value) => {
-    setFormData({
-      ...formData,
-      [field]: value
-    });
+  const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setNewAnnouncement(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+    setError('');
   };
   
-  // Handle form submission
-  const handleSubmitAnnouncement = () => {
-    // Validate form
-    if (!formData.title.trim() || !formData.content.trim()) {
-      alert(t('Please fill in all required fields.'));
+  // Handle adding a new announcement
+  const handleAddAnnouncement = (e) => {
+    e.preventDefault();
+    
+    // Validate
+    if (!newAnnouncement.title.trim() || !newAnnouncement.content.trim()) {
+      setError('Title and content are required');
       return;
     }
     
-    if (editingId === 'new') {
-      // Create new announcement
-      const newAnnouncement = {
-        ...formData,
-        id: (Math.max(...announcements.map(a => parseInt(a.id))) + 1).toString(),
-        date: new Date().toISOString().split('T')[0],
-        author: 'Admin'
-      };
-      
-      setAnnouncements([newAnnouncement, ...announcements]);
-    } else {
+    const newId = `ann${(announcements.length + 1).toString().padStart(3, '0')}`;
+    const today = new Date().toISOString().split('T')[0];
+    
+    if (editingId) {
       // Update existing announcement
-      const updatedAnnouncements = announcements.map(announcement => {
-        if (announcement.id === editingId) {
-          return {
-            ...announcement,
-            ...formData
-          };
-        }
-        return announcement;
-      });
-      
-      setAnnouncements(updatedAnnouncements);
+      setAnnouncements(prev => prev.map(a => 
+        a.id === editingId ? { ...newAnnouncement, id: editingId, date: today } : a
+      ));
+      setSuccess('Announcement updated successfully');
+      setEditingId(null);
+    } else {
+      // Add new announcement
+      setAnnouncements(prev => [
+        { ...newAnnouncement, id: newId, date: today },
+        ...prev
+      ]);
+      setSuccess('Announcement added successfully');
     }
     
-    setEditingId(null);
+    // Reset form
+    setNewAnnouncement({ title: '', content: '', isImportant: false });
+    setShowAddForm(false);
+    
+    // Clear success message after 3 seconds
+    setTimeout(() => {
+      setSuccess('');
+    }, 3000);
+  };
+  
+  // Handle editing an announcement
+  const handleEditAnnouncement = (announcement) => {
+    setNewAnnouncement({
+      title: announcement.title,
+      content: announcement.content,
+      isImportant: announcement.isImportant
+    });
+    setEditingId(announcement.id);
+    setShowAddForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   
   // Handle deleting an announcement
   const handleDeleteAnnouncement = (id) => {
-    if (window.confirm(t('Are you sure you want to delete this announcement?'))) {
-      const updatedAnnouncements = announcements.filter(announcement => announcement.id !== id);
-      setAnnouncements(updatedAnnouncements);
+    if (window.confirm('Are you sure you want to delete this announcement?')) {
+      setAnnouncements(prev => prev.filter(a => a.id !== id));
+      setSuccess('Announcement deleted successfully');
       
-      if (editingId === id) {
-        setEditingId(null);
-      }
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSuccess('');
+      }, 3000);
     }
   };
-  
-  // Handle toggling publish status
-  const handleTogglePublish = (id) => {
-    const updatedAnnouncements = announcements.map(announcement => {
-      if (announcement.id === id) {
-        return {
-          ...announcement,
-          isPublished: !announcement.isPublished
-        };
-      }
-      return announcement;
-    });
-    
-    setAnnouncements(updatedAnnouncements);
-  };
-  
-  // Get category color based on category name
-  const getCategoryColor = (category) => {
-    switch(category) {
-      case 'Urgent':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100';
-      case 'New Feature':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100';
-      case 'System Maintenance':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100';
-      case 'Exam Updates':
-        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100';
-      default:
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100';
-    }
-  };
-  
-  // Get category icon based on category name
-  const getCategoryIcon = (category) => {
-    switch(category) {
-      case 'Urgent':
-        return <AlertTriangle className="h-4 w-4" />;
-      case 'New Feature':
-        return <Info className="h-4 w-4" />;
-      case 'System Maintenance':
-        return <Tag className="h-4 w-4" />;
-      case 'Exam Updates':
-        return <Calendar className="h-4 w-4" />;
-      default:
-        return <MessageSquare className="h-4 w-4" />;
-    }
-  };
-  
-  // Filter and sort announcements
-  const filteredAnnouncements = announcements
-    .filter(announcement => {
-      if (filter === 'published') return announcement.isPublished;
-      if (filter === 'drafts') return !announcement.isPublished;
-      return true; // 'all'
-    })
-    .sort((a, b) => {
-      if (sort === 'newest') {
-        return new Date(b.date) - new Date(a.date);
-      } else {
-        return new Date(a.date) - new Date(b.date);
-      }
-    });
   
   return (
     <div>
-      {/* Header with filters and actions */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 space-y-3 md:space-y-0">
-        <div className="flex items-center space-x-2">
-          <Bell className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-1" />
-          <h2 className="text-lg font-medium text-gray-900 dark:text-white">{t('Announcements Management')}</h2>
-        </div>
-        
-        <div className="flex flex-wrap items-center space-x-2">
-          <div className="flex border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden">
-            <button
-              onClick={() => setFilter('all')}
-              className={`px-3 py-1 text-sm ${
-                filter === 'all'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
-            >
-              {t('All')}
-            </button>
-            <button
-              onClick={() => setFilter('published')}
-              className={`px-3 py-1 text-sm ${
-                filter === 'published'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
-            >
-              {t('Published')}
-            </button>
-            <button
-              onClick={() => setFilter('drafts')}
-              className={`px-3 py-1 text-sm ${
-                filter === 'drafts'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
-            >
-              {t('Drafts')}
-            </button>
-          </div>
-          
-          <button
-            onClick={() => setSort(sort === 'newest' ? 'oldest' : 'newest')}
-            className="flex items-center px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
-          >
-            {sort === 'newest' ? (
-              <>
-                <ChevronDown className="h-4 w-4 mr-1" />
-                {t('Newest')}
-              </>
-            ) : (
-              <>
-                <ChevronUp className="h-4 w-4 mr-1" />
-                {t('Oldest')}
-              </>
-            )}
-          </button>
-          
-          <button
-            onClick={handleNewAnnouncement}
-            className="flex items-center px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            {t('New Announcement')}
-          </button>
-        </div>
-      </div>
+      <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'} mb-6`}>
+        {t.newsManagementTab || 'Announcements Management'}
+      </h2>
       
-      {/* Editing form */}
-      {editingId && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-              {editingId === 'new' ? t('Create New Announcement') : t('Edit Announcement')}
-            </h3>
-            <button
-              onClick={handleCancelEdit}
-              className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t('Title')} *
-              </label>
-              <input
-                type="text"
-                value={formData.title}
-                onChange={(e) => handleInputChange('title', e.target.value)}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                placeholder={t('Enter announcement title')}
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t('Content')} *
-              </label>
-              <textarea
-                value={formData.content}
-                onChange={(e) => handleInputChange('content', e.target.value)}
-                rows={4}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                placeholder={t('Enter announcement content')}
-              ></textarea>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {t('Category')}
-                </label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => handleInputChange('category', e.target.value)}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                >
-                  {categories.map(category => (
-                    <option key={category} value={category}>{t(category)}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div className="flex space-x-4 items-center">
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="isPublished"
-                    checked={formData.isPublished}
-                    onChange={(e) => handleInputChange('isPublished', e.target.checked)}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <label htmlFor="isPublished" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                    {t('Publish immediately')}
-                  </label>
-                </div>
-                
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="isNew"
-                    checked={formData.isNew}
-                    onChange={(e) => handleInputChange('isNew', e.target.checked)}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <label htmlFor="isNew" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                    {t('Mark as new')}
-                  </label>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex justify-end space-x-3 mt-4">
-              <button
-                onClick={handleCancelEdit}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                {t('Cancel')}
-              </button>
-              <button
-                onClick={handleSubmitAnnouncement}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center"
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {editingId === 'new' ? t('Create') : t('Update')}
-              </button>
-            </div>
-          </div>
+      {/* Success and error alerts */}
+      {success && (
+        <div className={`mb-4 p-3 ${darkMode ? 'bg-green-900/30 border-green-800' : 'bg-green-100 border-green-200'} border text-green-700 rounded-md flex items-center`}>
+          <Check className={`h-5 w-5 mr-2 ${darkMode ? 'text-green-400' : 'text-green-500'}`} />
+          {success}
         </div>
       )}
       
-      {/* Announcement list */}
-      {filteredAnnouncements.length > 0 ? (
-        <div className="space-y-4">
-          {filteredAnnouncements.map(announcement => (
-            <div 
-              key={announcement.id}
-              className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden border ${
-                announcement.isPublished
-                  ? 'border-gray-200 dark:border-gray-700'
-                  : 'border-yellow-300 dark:border-yellow-700'
-              }`}
+      {error && (
+        <div className={`mb-4 p-3 ${darkMode ? 'bg-red-900/30 border-red-800' : 'bg-red-100 border-red-200'} border text-red-700 rounded-md flex items-center`}>
+          <AlertCircle className={`h-5 w-5 mr-2 ${darkMode ? 'text-red-400' : 'text-red-500'}`} />
+          {error}
+        </div>
+      )}
+      
+      {/* Add/Edit Announcement Form */}
+      <div className="mb-6">
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex items-center">
+            <Newspaper className={`h-5 w-5 ${darkMode ? 'text-blue-400' : 'text-blue-600'} mr-2`} />
+            <h3 className="text-lg font-medium">
+              {editingId ? 'Edit Announcement' : 'Announcements'}
+            </h3>
+          </div>
+          {!showAddForm && (
+            <button
+              onClick={() => setShowAddForm(true)}
+              className={`inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium ${
+                darkMode
+                  ? 'bg-blue-600 hover:bg-blue-500 text-white'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+              } transition-colors duration-200`}
             >
-              <div className="p-4">
-                <div className="flex flex-wrap justify-between items-start mb-2">
-                  <div className="flex items-center">
-                    <span className={`flex items-center px-2 py-1 text-xs font-medium rounded-md ${getCategoryColor(announcement.category)}`}>
-                      {getCategoryIcon(announcement.category)}
-                      <span className="ml-1">{t(announcement.category)}</span>
-                    </span>
-                    {announcement.isNew && (
-                      <span className="ml-2 px-2 py-1 text-xs font-medium rounded-md bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100">
-                        {t('New')}
-                      </span>
-                    )}
-                    {!announcement.isPublished && (
-                      <span className="ml-2 px-2 py-1 text-xs font-medium rounded-md bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100">
-                        {t('Draft')}
-                      </span>
-                    )}
-                    <span className="ml-2 text-xs text-gray-500 dark:text-gray-400 flex items-center">
-                      <Calendar className="h-3 w-3 mr-1" />
-                      {announcement.date}
-                    </span>
-                  </div>
-                  
-                  <div className="flex space-x-2 mt-2 sm:mt-0">
-                    <button
-                      onClick={() => handleTogglePublish(announcement.id)}
-                      className={`p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                        announcement.isPublished
-                          ? 'text-green-600 dark:text-green-400'
-                          : 'text-yellow-600 dark:text-yellow-400'
-                      }`}
-                      title={announcement.isPublished ? t('Unpublish') : t('Publish')}
-                    >
-                      {announcement.isPublished ? (
-                        <Check className="h-4 w-4" />
-                      ) : (
-                        <Info className="h-4 w-4" />
+              <PlusCircle className="h-4 w-4 mr-1.5" />
+              Add New
+            </button>
+          )}
+        </div>
+        
+        {showAddForm && (
+          <div className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg p-4 mb-6`}>
+            <form onSubmit={handleAddAnnouncement}>
+              <div className="mb-4">
+                <label className={`block text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
+                  Title
+                </label>
+                <input
+                  type="text"
+                  name="title"
+                  value={newAnnouncement.title}
+                  onChange={handleInputChange}
+                  className={`w-full p-2 ${
+                    darkMode 
+                      ? 'bg-gray-800 border-gray-600 text-white focus:ring-blue-500' 
+                      : 'border-gray-300 focus:ring-blue-500'
+                  } border rounded-md focus:outline-none focus:ring-2`}
+                  placeholder="Enter announcement title"
+                />
+              </div>
+              
+              <div className="mb-4">
+                <label className={`block text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
+                  Content
+                </label>
+                <textarea
+                  name="content"
+                  value={newAnnouncement.content}
+                  onChange={handleInputChange}
+                  rows="4"
+                  className={`w-full p-2 ${
+                    darkMode 
+                      ? 'bg-gray-800 border-gray-600 text-white focus:ring-blue-500' 
+                      : 'border-gray-300 focus:ring-blue-500'
+                  } border rounded-md focus:outline-none focus:ring-2`}
+                  placeholder="Enter announcement content"
+                ></textarea>
+              </div>
+              
+              <div className="mb-4 flex items-center">
+                <input
+                  type="checkbox"
+                  id="isImportant"
+                  name="isImportant"
+                  checked={newAnnouncement.isImportant}
+                  onChange={handleInputChange}
+                  className={`h-4 w-4 ${
+                    darkMode
+                      ? 'bg-gray-800 border-gray-600 text-blue-600 focus:ring-blue-500'
+                      : 'border-gray-300 text-blue-600 focus:ring-blue-500'
+                  } rounded focus:ring-2`}
+                />
+                <label htmlFor="isImportant" className={`ml-2 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Mark as important announcement
+                </label>
+              </div>
+              
+              <div className="flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddForm(false);
+                    setEditingId(null);
+                    setNewAnnouncement({ title: '', content: '', isImportant: false });
+                  }}
+                  className={`px-4 py-2 ${
+                    darkMode 
+                      ? 'border-gray-600 text-gray-300 hover:bg-gray-600' 
+                      : 'border-gray-300 text-gray-700 hover:bg-gray-100'
+                  } border rounded-md transition-colors duration-200`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className={`px-4 py-2 ${
+                    darkMode 
+                      ? 'bg-blue-600 hover:bg-blue-500' 
+                      : 'bg-blue-600 hover:bg-blue-700'
+                  } text-white rounded-md transition-colors duration-200`}
+                >
+                  {editingId ? 'Update' : 'Add'} Announcement
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+      </div>
+      
+      {/* Search and Announcements List */}
+      <div>
+        <div className="mb-4 relative">
+          <input
+            type="text"
+            placeholder="Search announcements..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className={`w-full pl-10 pr-4 py-2 ${
+              darkMode 
+                ? 'bg-gray-700 border-gray-600 placeholder-gray-400 text-white' 
+                : 'border-gray-300 placeholder-gray-500 text-gray-900'
+            } border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
+          />
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className={`h-5 w-5 ${darkMode ? 'text-gray-400' : 'text-gray-400'}`} />
+          </div>
+        </div>
+        
+        {loading ? (
+          <div className="animate-pulse space-y-4">
+            <div className="h-32 bg-gray-200 rounded w-full"></div>
+            <div className="h-32 bg-gray-200 rounded w-full"></div>
+            <div className="h-32 bg-gray-200 rounded w-full"></div>
+          </div>
+        ) : filteredAnnouncements.length > 0 ? (
+          <div className="space-y-4">
+            {filteredAnnouncements.map(announcement => (
+              <div 
+                key={announcement.id}
+                className={`p-4 rounded-lg border ${
+                  announcement.isImportant
+                    ? darkMode
+                      ? 'border-red-800 bg-red-900/20'
+                      : 'border-red-200 bg-red-50'
+                    : darkMode
+                      ? 'border-gray-700 bg-gray-800'
+                      : 'border-gray-200 bg-white'
+                }`}
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-medium text-lg">
+                      {announcement.title}
+                      {announcement.isImportant && (
+                        <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
+                          darkMode ? 'bg-red-800 text-red-200' : 'bg-red-100 text-red-800'
+                        }`}>
+                          Important
+                        </span>
                       )}
-                    </button>
+                    </h3>
+                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-3`}>
+                      Published on {announcement.date}
+                    </p>
+                  </div>
+                  <div className="flex space-x-2">
                     <button
                       onClick={() => handleEditAnnouncement(announcement)}
-                      className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-blue-600 dark:text-blue-400"
-                      title={t('Edit')}
+                      className={`p-1.5 rounded ${
+                        darkMode 
+                          ? 'hover:bg-gray-700 text-gray-300' 
+                          : 'hover:bg-gray-100 text-gray-600'
+                      } transition-colors duration-200`}
+                      title="Edit"
                     >
-                      <Edit className="h-4 w-4" />
+                      <Edit2 className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => handleDeleteAnnouncement(announcement.id)}
-                      className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-red-600 dark:text-red-400"
-                      title={t('Delete')}
+                      className={`p-1.5 rounded ${
+                        darkMode 
+                          ? 'hover:bg-red-900/30 text-gray-300' 
+                          : 'hover:bg-red-100 text-gray-600'
+                      } transition-colors duration-200`}
+                      title="Delete"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
-                    <button
-                      onClick={() => toggleExpand(announcement.id)}
-                      className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400"
-                      title={expandedId === announcement.id ? t('Collapse') : t('Expand')}
-                    >
-                      {expandedId === announcement.id ? (
-                        <ChevronUp className="h-4 w-4" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4" />
-                      )}
-                    </button>
                   </div>
                 </div>
-                
-                <h3 className="font-medium text-gray-900 dark:text-white mb-2">
-                  {announcement.title}
-                </h3>
-                
-                {expandedId === announcement.id ? (
-                  <div className="text-gray-600 dark:text-gray-300">
-                    {announcement.content}
-                    <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                      {t('Posted by')}: {announcement.author}
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-gray-600 dark:text-gray-300 line-clamp-2">
-                    {announcement.content}
-                  </p>
-                )}
+                <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  {announcement.content}
+                </p>
               </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center">
-          <Bell className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-          <p className="text-gray-500 dark:text-gray-400 mb-4">
-            {filter === 'drafts' 
-              ? t('No draft announcements found.')
-              : filter === 'published'
-                ? t('No published announcements found.')
-                : t('No announcements found.')}
-          </p>
-          <button
-            onClick={handleNewAnnouncement}
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            {t('Create your first announcement')}
-          </button>
-        </div>
-      )}
+            ))}
+          </div>
+        ) : (
+          <div className={`text-center py-12 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+            {searchTerm ? 'No announcements found matching your search' : 'No announcements available'}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

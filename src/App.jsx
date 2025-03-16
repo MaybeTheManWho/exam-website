@@ -6,30 +6,42 @@ import ExamQuestion from './components/student/ExamQuestion';
 import ExamResults from './components/student/ExamResults';
 import AdminDashboard from './components/admin/AdminDashboard';
 import ExamDetailPage from './components/admin/ExamDetailPage';
-import { AppProvider } from './context/AppContext';
+import LandingPage from './components/LandingPage';
 import GatExamPage from './components/student/GatExamPage';
 import GatTrainingPage from './components/student/GatTrainingPage';
+import { AppProvider } from './context/AppContext';
 
 const App = () => {
   // Application state
   const [user, setUser] = useState(null);
-  const [currentView, setCurrentView] = useState('login');
+  const [currentView, setCurrentView] = useState('landing');
   const [selectedExam, setSelectedExam] = useState(null);
   const [examResults, setExamResults] = useState(null);
   const [selectedExamId, setSelectedExamId] = useState(null);
-  const [gatMode, setGatMode] = useState(null); // 'math' or 'arabic'
-  const [gatAction, setGatAction] = useState(null); // 'exam' or 'train'
+  const [gatExamType, setGatExamType] = useState(null);
+  const [gatExamDifficulty, setGatExamDifficulty] = useState(null);
   
   // Check if user is already logged in
   useEffect(() => {
+    // Always show landing page first, then check login
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      setUser(parsedUser);
-      if (parsedUser.isAdmin) {
-        setCurrentView('adminDashboard');
-      } else {
-        setCurrentView('studentDashboard');
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+        
+        // Only auto-redirect if URL has a specific parameter
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('autologin') === 'true') {
+          if (parsedUser.isAdmin) {
+            setCurrentView('adminDashboard');
+          } else {
+            setCurrentView('studentDashboard');
+          }
+        }
+      } catch (err) {
+        console.error('Error parsing stored user data:', err);
+        localStorage.removeItem('user');
       }
     }
   }, []);
@@ -46,11 +58,16 @@ const App = () => {
     }
   };
   
+  // Handle navigating to login page
+  const navigateToLogin = () => {
+    setCurrentView('login');
+  };
+  
   // Handle logout
   const handleLogout = () => {
     setUser(null);
     localStorage.removeItem('user');
-    setCurrentView('login');
+    setCurrentView('landing');
   };
   
   // Handle starting an exam
@@ -95,21 +112,59 @@ const App = () => {
     setCurrentView('adminDashboard');
   };
   
-  // Handle GAT navigation
-  const handleGatNavigation = (mode, action) => {
-    setGatMode(mode); // 'math' or 'arabic'
-    setGatAction(action); // 'exam' or 'train'
+  // Handle navigating to GAT page
+  const handleNavigateToGat = () => {
+    setCurrentView('gatExam');
+  };
+  
+  // Handle navigating to GAT training page
+  const handleNavigateToGatTraining = () => {
+    setCurrentView('gatTraining');
+  };
+  
+  // Handle starting a GAT exam
+  const handleStartGatExam = (type, difficulty) => {
+    console.log(`Starting GAT exam - Type: ${type}, Difficulty: ${difficulty}`);
     
-    if (action === 'exam') {
-      setCurrentView('gatExam');
-    } else {
-      setCurrentView('gatTraining');
-    }
+    setGatExamType(type);
+    setGatExamDifficulty(difficulty);
+    
+    // Import needed functions
+    import('./utils/ExamFunctions').then(module => {
+      // Generate questions for the exam
+      const questions = module.generateGatQuestions(type, difficulty);
+      
+      // Create a GAT exam object
+      const gatExam = {
+        id: `gat-${type}-${difficulty}`,
+        name: `${type.charAt(0).toUpperCase() + type.slice(1)} GAT Exam (${difficulty})`,
+        organizer: 'GAT System',
+        endDate: '2025-12-31',
+        addedDate: new Date().toISOString().split('T')[0],
+        duration: difficulty === 'easy' ? 45 : difficulty === 'medium' ? 60 : 75,
+        questionCount: difficulty === 'easy' ? 15 : difficulty === 'medium' ? 20 : 25,
+        questions: questions,
+        type: type,
+        difficulty: difficulty
+      };
+      
+      console.log(`Created GAT exam with ${questions.length} questions`);
+      
+      // Start the exam
+      setSelectedExam(gatExam);
+      setCurrentView('examIntro');
+    }).catch(error => {
+      console.error('Error loading exam functions:', error);
+      alert('Failed to load exam. Please try again.');
+    });
   };
   
   // Render the appropriate view
   const renderView = () => {
     switch (currentView) {
+      case 'landing':
+        return <LandingPage onLogin={navigateToLogin} />;
+        
       case 'login':
         return <LoginPage onLogin={handleLogin} />;
         
@@ -117,9 +172,25 @@ const App = () => {
         return (
           <StudentDashboard 
             user={user} 
-            onStartExam={handleStartExam} 
-            onLogout={handleLogout}
-            onGatNavigation={handleGatNavigation}
+            onStartExam={handleStartExam}
+            onNavigateToGat={handleNavigateToGat}
+            onNavigateToGatTraining={handleNavigateToGatTraining}
+            onLogout={handleLogout} 
+          />
+        );
+        
+      case 'gatExam':
+        return (
+          <GatExamPage 
+            onStartGatExam={handleStartGatExam} 
+            onBack={() => setCurrentView('studentDashboard')} 
+          />
+        );
+        
+      case 'gatTraining':
+        return (
+          <GatTrainingPage 
+            onBack={() => setCurrentView('studentDashboard')} 
           />
         );
         
@@ -165,30 +236,14 @@ const App = () => {
           />
         );
         
-      case 'gatExam':
-        return (
-          <GatExamPage
-            mode={gatMode}
-            onReturn={handleReturnToDashboard}
-          />
-        );
-        
-      case 'gatTraining':
-        return (
-          <GatTrainingPage
-            mode={gatMode}
-            onReturn={handleReturnToDashboard}
-          />
-        );
-        
       default:
-        return <LoginPage onLogin={handleLogin} />;
+        return <LandingPage onLogin={navigateToLogin} />;
     }
   };
   
   return (
     <AppProvider>
-      <div className="dark:bg-gray-900 dark:text-white transition-colors duration-200">
+      <div>
         {renderView()}
       </div>
     </AppProvider>

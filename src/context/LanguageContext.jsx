@@ -1,8 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 
-// Create the App Context
-const AppContext = createContext();
-
 // Translations
 const translations = {
   en: {
@@ -307,14 +304,16 @@ const translations = {
   }
 };
 
-// App Provider Component
-export const AppProvider = ({ children }) => {
+// Create context
+const LanguageContext = createContext();
+
+export const useLanguage = () => useContext(LanguageContext);
+
+export const LanguageProvider = ({ children }) => {
   const [language, setLanguage] = useState('en');
-  const [darkMode, setDarkMode] = useState(false);
   
-  // Load saved preferences
+  // Check for saved language preference
   useEffect(() => {
-    // Check for language preference
     const savedLanguage = localStorage.getItem('language');
     if (savedLanguage) {
       setLanguage(savedLanguage);
@@ -324,19 +323,6 @@ export const AppProvider = ({ children }) => {
       if (browserLang === 'ar') {
         setLanguage('ar');
       }
-    }
-    
-    // Check for theme preference
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-      setDarkMode(true);
-      document.documentElement.classList.add('dark');
-    } else if (savedTheme === 'light') {
-      setDarkMode(false);
-      document.documentElement.classList.remove('dark');
-    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setDarkMode(true);
-      document.documentElement.classList.add('dark');
     }
   }, []);
   
@@ -351,48 +337,11 @@ export const AppProvider = ({ children }) => {
     });
   };
   
-  // Toggle dark mode
-  const toggleDarkMode = () => {
-    setDarkMode(prevDarkMode => {
-      const newDarkMode = !prevDarkMode;
-      localStorage.setItem('theme', newDarkMode ? 'dark' : 'light');
-      
-      if (newDarkMode) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-      
-      return newDarkMode;
-    });
-  };
-  
-  // Get translations for current language
-  const t = translations[language];
-  
-  // Context value
-  const contextValue = {
-    language,
-    toggleLanguage,
-    darkMode,
-    toggleDarkMode,
-    t
-  };
-  
   return (
-    <AppContext.Provider value={contextValue}>
+    <LanguageContext.Provider value={{ language, toggleLanguage, translations }}>
       {children}
-    </AppContext.Provider>
+    </LanguageContext.Provider>
   );
 };
 
-// Custom hook to use the App Context
-export const useAppContext = () => {
-  const context = useContext(AppContext);
-  if (!context) {
-    throw new Error('useAppContext must be used within an AppProvider');
-  }
-  return context;
-};
-
-export default AppContext;
+export default LanguageContext;

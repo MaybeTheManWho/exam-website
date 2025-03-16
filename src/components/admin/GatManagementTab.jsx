@@ -1,819 +1,729 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Plus, BookOpen, FileText, Image, Library, Tag, AlignLeft, 
-  BarChart2, CheckCircle, XCircle, Edit, Trash2, ArrowLeft, Save,
-  Calculator, Languages, BookMarked, Hash
-} from 'lucide-react';
-import { useAppContext } from '../../context/AppContext';
-
-// Mock topics for GAT questions
-const initialTopics = [
-  { id: 'topic1', name: 'Algebra', count: 42 },
-  { id: 'topic2', name: 'Geometry', count: 35 },
-  { id: 'topic3', name: 'Calculus', count: 28 },
-  { id: 'topic4', name: 'Statistics', count: 21 },
-  { id: 'topic5', name: 'Trigonometry', count: 19 },
-  { id: 'topic6', name: 'Grammar', count: 32 },
-  { id: 'topic7', name: 'Vocabulary', count: 27 },
-  { id: 'topic8', name: 'Reading Comprehension', count: 24 },
-  { id: 'topic9', name: 'Syntax', count: 18 },
-  { id: 'topic10', name: 'Literary Analysis', count: 15 }
-];
-
-// Mock questions for demonstration
-const initialQuestions = [
-  {
-    id: 'q1',
-    topic: 'topic1',
-    difficulty: 'easy',
-    subject: 'math',
-    bankNumber: 1,
-    text: 'If x + 3 = 7, what is the value of x?',
-    options: [
-      { id: 'a', text: '2' },
-      { id: 'b', text: '3' },
-      { id: 'c', text: '4', isCorrect: true },
-      { id: 'd', text: '5' }
-    ],
-    imageUrl: null
-  },
-  {
-    id: 'q2',
-    topic: 'topic2',
-    difficulty: 'medium',
-    subject: 'math',
-    bankNumber: 2,
-    text: 'What is the area of a circle with radius 5?',
-    options: [
-      { id: 'a', text: '25π', isCorrect: true },
-      { id: 'b', text: '10π' },
-      { id: 'c', text: '5π' },
-      { id: 'd', text: '15π' }
-    ],
-    imageUrl: null
-  },
-  {
-    id: 'q3',
-    topic: 'topic3',
-    difficulty: 'hard',
-    subject: 'math',
-    bankNumber: 3,
-    text: 'Find the derivative of f(x) = x³ + 2x² - 5x + 3',
-    options: [
-      { id: 'a', text: '3x² + 4x - 5', isCorrect: true },
-      { id: 'b', text: '3x² + 2x - 5' },
-      { id: 'c', text: '3x² + 4x - 1' },
-      { id: 'd', text: '2x² + 4x - 5' }
-    ],
-    imageUrl: null
-  },
-  {
-    id: 'q4',
-    topic: 'topic6',
-    difficulty: 'medium',
-    subject: 'arabic',
-    bankNumber: 1,
-    text: 'أي مما يلي هو استخدام صحيح للضمير؟',
-    options: [
-      { id: 'a', text: 'أنا ذهبت إلى المدرسة' },
-      { id: 'b', text: 'أنا ذهبتُ إلى المدرسة', isCorrect: true },
-      { id: 'c', text: 'أنا ذهبتِ إلى المدرسة' },
-      { id: 'd', text: 'أنا ذهبوا إلى المدرسة' }
-    ],
-    imageUrl: null
-  }
-];
-
-// Generate bank options (1-4, 5-8, etc. up to 100)
-const generateBankOptions = () => {
-  const options = [];
-  for (let i = 1; i <= 100; i += 4) {
-    options.push({
-      value: i,
-      label: `Bank ${i}-${i+3}`
-    });
-  }
-  return options;
-};
-
-const bankOptions = generateBankOptions();
+import { PlusCircle, X, Calculator, BookOpen, Settings, AlertCircle, Check, Edit2, Save, Upload, Download, Search, BarChart2, List, Grid, Tag } from 'lucide-react';
+import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
+import { getGatTopics, addGatTopic, removeGatTopic } from '../../utils/ExamFunctions';
 
 const GatManagementTab = () => {
-  const { t } = useAppContext();
-  const [view, setView] = useState('topics'); // 'topics', 'questions', 'newQuestion', 'editQuestion'
-  const [topics, setTopics] = useState(initialTopics);
-  const [questions, setQuestions] = useState(initialQuestions);
-  const [selectedTopic, setSelectedTopic] = useState(null);
-  const [currentQuestion, setCurrentQuestion] = useState(null);
-  const [filter, setFilter] = useState({ 
-    difficulty: 'all', 
-    subject: 'all', 
-    bank: 'all', 
-    search: '' 
+  const { darkMode } = useTheme();
+  const { language, translations } = useLanguage();
+  const t = translations[language];
+  
+  const [activeTab, setActiveTab] = useState('math');
+  const [topics, setTopics] = useState({ math: [], arabic: [] });
+  const [newTopic, setNewTopic] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingTopic, setEditingTopic] = useState(null);
+  const [statistics, setStatistics] = useState({
+    math: { topics: 0, questions: { easy: 0, medium: 0, hard: 0, total: 0 } },
+    arabic: { topics: 0, questions: { easy: 0, medium: 0, hard: 0, total: 0 } }
   });
   
-  // Form state for new/edit question
-  const [questionForm, setQuestionForm] = useState({
-    topic: '',
-    difficulty: 'medium',
-    subject: 'math',
-    bankNumber: 1,
-    text: '',
-    options: [
-      { id: 'a', text: '', isCorrect: false },
-      { id: 'b', text: '', isCorrect: false },
-      { id: 'c', text: '', isCorrect: false },
-      { id: 'd', text: '', isCorrect: false }
-    ],
-    imageUrl: null
-  });
-  
-  // Handle topic selection
-  const handleSelectTopic = (topicId) => {
-    setSelectedTopic(topicId);
-    setView('questions');
-  };
-  
-  // Handle creating a new topic
-  const handleCreateTopic = () => {
-    const topicName = prompt(t('Enter new topic name:'));
-    if (topicName && topicName.trim() !== '') {
-      const newTopic = {
-        id: `topic${topics.length + 1}`,
-        name: topicName.trim(),
-        count: 0
-      };
-      setTopics([...topics, newTopic]);
-    }
-  };
-  
-  // Handle starting to create a new question
-  const handleNewQuestion = () => {
-    setQuestionForm({
-      topic: selectedTopic || '',
-      difficulty: 'medium',
-      subject: 'math',
-      bankNumber: 1,
-      text: '',
-      options: [
-        { id: 'a', text: '', isCorrect: false },
-        { id: 'b', text: '', isCorrect: false },
-        { id: 'c', text: '', isCorrect: false },
-        { id: 'd', text: '', isCorrect: false }
-      ],
-      imageUrl: null
-    });
-    setView('newQuestion');
-  };
-  
-  // Handle editing a question
-  const handleEditQuestion = (questionId) => {
-    const question = questions.find(q => q.id === questionId);
-    if (question) {
-      setCurrentQuestion(question);
-      setQuestionForm({
-        ...question
-      });
-      setView('editQuestion');
-    }
-  };
-  
-  // Handle deleting a question
-  const handleDeleteQuestion = (questionId) => {
-    if (window.confirm(t('Are you sure you want to delete this question?'))) {
-      const newQuestions = questions.filter(q => q.id !== questionId);
-      setQuestions(newQuestions);
+  // Load topics on mount
+  useEffect(() => {
+    // Simulate API call
+    setLoading(true);
+    setTimeout(() => {
+      const fetchedTopics = getGatTopics();
+      setTopics(fetchedTopics);
       
-      // Update topic count
-      const question = questions.find(q => q.id === questionId);
-      if (question) {
-        const newTopics = topics.map(topic => {
-          if (topic.id === question.topic) {
-            return { ...topic, count: Math.max(0, topic.count - 1) };
-          }
-          return topic;
-        });
-        setTopics(newTopics);
-      }
-    }
-  };
-  
-  // Handle form input changes
-  const handleFormChange = (field, value) => {
-    setQuestionForm({
-      ...questionForm,
-      [field]: value
-    });
-  };
-  
-  // Handle option changes
-  const handleOptionChange = (optionId, field, value) => {
-    const newOptions = questionForm.options.map(option => {
-      if (option.id === optionId) {
-        if (field === 'isCorrect') {
-          // Only one option can be correct
-          return { ...option, isCorrect: true };
+      // Update statistics
+      setStatistics({
+        math: {
+          topics: fetchedTopics.math.length,
+          questions: { easy: 45, medium: 60, hard: 30, total: 135 }
+        },
+        arabic: {
+          topics: fetchedTopics.arabic.length,
+          questions: { easy: 50, medium: 75, hard: 40, total: 165 }
         }
-        return { ...option, [field]: value };
-      } else if (field === 'isCorrect') {
-        // Uncheck other options
-        return { ...option, isCorrect: false };
-      }
-      return option;
-    });
-    
-    setQuestionForm({
-      ...questionForm,
-      options: newOptions
-    });
-  };
+      });
+      
+      setLoading(false);
+    }, 500);
+  }, []);
   
-  // Handle form submission
-  const handleSubmitQuestion = () => {
-    // Validate form
-    if (!questionForm.topic || !questionForm.text.trim() || 
-        !questionForm.options.some(o => o.isCorrect) ||
-        questionForm.options.some(o => !o.text.trim())) {
-      alert(t('Please fill in all fields and select a correct answer.'));
+  // Filter topics based on search term
+  const filteredTopics = searchTerm.trim() === '' 
+    ? topics[activeTab]
+    : topics[activeTab].filter(topic => 
+        topic.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+  
+  // Handle adding a new topic
+  const handleAddTopic = (e) => {
+    e.preventDefault();
+    
+    // Validate
+    if (!newTopic.trim()) {
+      setError(t.topicRequired);
       return;
     }
     
-    if (view === 'newQuestion') {
-      // Create new question
-      const newQuestion = {
-        ...questionForm,
-        id: `q${questions.length + 1}`
-      };
-      
-      setQuestions([...questions, newQuestion]);
-      
-      // Update topic count
-      const newTopics = topics.map(topic => {
-        if (topic.id === newQuestion.topic) {
-          return { ...topic, count: topic.count + 1 };
-        }
-        return topic;
-      });
-      setTopics(newTopics);
-    } else {
-      // Update existing question
-      const newQuestions = questions.map(q => {
-        if (q.id === currentQuestion.id) {
-          return { ...questionForm, id: q.id };
-        }
-        return q;
-      });
-      setQuestions(newQuestions);
-      
-      // Update topic count if topic changed
-      if (currentQuestion.topic !== questionForm.topic) {
-        const newTopics = topics.map(topic => {
-          if (topic.id === currentQuestion.topic) {
-            return { ...topic, count: Math.max(0, topic.count - 1) };
-          }
-          if (topic.id === questionForm.topic) {
-            return { ...topic, count: topic.count + 1 };
-          }
-          return topic;
-        });
-        setTopics(newTopics);
+    // Check if topic already exists
+    if (topics[activeTab].includes(newTopic.trim().toLowerCase())) {
+      setError(t.topicExists);
+      return;
+    }
+    
+    // Add topic
+    const updatedTopics = addGatTopic(
+      topics, 
+      activeTab, 
+      newTopic.trim().toLowerCase()
+    );
+    
+    // Update statistics
+    setStatistics(prev => ({
+      ...prev,
+      [activeTab]: {
+        ...prev[activeTab],
+        topics: prev[activeTab].topics + 1
       }
-    }
+    }));
     
-    // Save to localStorage (in a real application this would be an API call)
-    localStorage.setItem('gatQuestions', JSON.stringify([...questions, questionForm]));
+    setTopics(updatedTopics);
+    setSuccess(t.topicAdded);
+    setNewTopic('');
+    setShowAddForm(false);
     
-    // Return to questions view
-    setView('questions');
+    // Clear success message after 3 seconds
+    setTimeout(() => {
+      setSuccess('');
+    }, 3000);
   };
   
-  // Load questions from localStorage on initial render
-  useEffect(() => {
-    const storedQuestions = localStorage.getItem('gatQuestions');
-    if (storedQuestions) {
-      setQuestions(JSON.parse(storedQuestions));
-    }
-  }, []);
-  
-  // Filter questions based on current filters
-  const filteredQuestions = questions.filter(question => {
-    // Filter by topic
-    if (selectedTopic && question.topic !== selectedTopic) {
-      return false;
-    }
-    
-    // Filter by difficulty
-    if (filter.difficulty !== 'all' && question.difficulty !== filter.difficulty) {
-      return false;
-    }
-    
-    // Filter by subject
-    if (filter.subject !== 'all' && question.subject !== filter.subject) {
-      return false;
-    }
-    
-    // Filter by bank
-    if (filter.bank !== 'all' && question.bankNumber !== parseInt(filter.bank)) {
-      return false;
-    }
-    
-    // Filter by search term
-    if (filter.search && !question.text.toLowerCase().includes(filter.search.toLowerCase())) {
-      return false;
-    }
-    
-    return true;
-  });
-  
-  // Get topic name by ID
-  const getTopicName = (topicId) => {
-    const topic = topics.find(t => t.id === topicId);
-    return topic ? topic.name : '';
-  };
-  
-  // Get topic icon based on topic name
-  const getTopicIcon = (topicName) => {
-    const mathTopics = ['Algebra', 'Geometry', 'Calculus', 'Statistics', 'Trigonometry'];
-    
-    if (mathTopics.includes(topicName)) {
-      return <Calculator className="h-5 w-5 text-blue-600 dark:text-blue-400" />;
-    } else {
-      return <Languages className="h-5 w-5 text-purple-600 dark:text-purple-400" />;
+  // Handle removing a topic
+  const handleRemoveTopic = (topic) => {
+    if (window.confirm(t.confirmRemoveTopic)) {
+      const updatedTopics = removeGatTopic(topics, activeTab, topic);
+      
+      // Update statistics
+      setStatistics(prev => ({
+        ...prev,
+        [activeTab]: {
+          ...prev[activeTab],
+          topics: prev[activeTab].topics - 1
+        }
+      }));
+      
+      setTopics(updatedTopics);
+      setSuccess(t.topicRemoved);
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSuccess('');
+      }, 3000);
     }
   };
   
-  // Get subject label
-  const getSubjectLabel = (subject) => {
-    return subject === 'math' ? t('Mathematics') : t('Arabic');
+  // Handle editing a topic
+  const handleStartEdit = (topic) => {
+    setEditingTopic({ name: topic, newName: topic });
   };
   
-  // Mock function to handle image upload
-  const handleImageUpload = () => {
-    alert(t('Image upload functionality would be implemented here.'));
-    // In a real application, this would handle file selection and upload
+  const handleUpdateEditingTopic = (e) => {
+    setEditingTopic({ ...editingTopic, newName: e.target.value });
   };
   
-  // Render view based on current state
-  const renderView = () => {
-    switch (view) {
-      case 'topics':
-        return (
-          <div>
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">{t('Question Topics')}</h3>
-              <button
-                onClick={handleCreateTopic}
-                className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                {t('Add Topic')}
-              </button>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {topics.map(topic => (
-                <div 
-                  key={topic.id}
-                  onClick={() => handleSelectTopic(topic.id)}
-                  className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer hover:shadow-md transition-shadow"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-lg mr-3">
-                        {getTopicIcon(topic.name)}
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-gray-900 dark:text-white">{topic.name}</h4>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {topic.count} {t('questions')}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="bg-gray-100 dark:bg-gray-700 rounded-full h-8 w-8 flex items-center justify-center">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{topic.count}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-        
-      case 'questions':
-        return (
-          <div>
-            <div className="flex items-center mb-6">
-              <button
-                onClick={() => setView('topics')}
-                className="mr-3 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </button>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                {getTopicName(selectedTopic)} {t('Questions')}
-              </h3>
-            </div>
-            
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 space-y-2 md:space-y-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm text-gray-500 dark:text-gray-400">{t('Filter by')}:</span>
-                <select
-                  value={filter.difficulty}
-                  onChange={(e) => setFilter({...filter, difficulty: e.target.value})}
-                  className="border border-gray-300 dark:border-gray-600 rounded-md text-sm py-1 px-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                >
-                  <option value="all">{t('All Difficulties')}</option>
-                  <option value="easy">{t('Easy')}</option>
-                  <option value="medium">{t('Medium')}</option>
-                  <option value="hard">{t('Hard')}</option>
-                </select>
-                
-                <select
-                  value={filter.subject}
-                  onChange={(e) => setFilter({...filter, subject: e.target.value})}
-                  className="border border-gray-300 dark:border-gray-600 rounded-md text-sm py-1 px-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                >
-                  <option value="all">{t('All Subjects')}</option>
-                  <option value="math">{t('Mathematics')}</option>
-                  <option value="arabic">{t('Arabic')}</option>
-                </select>
-                
-                <select
-                  value={filter.bank}
-                  onChange={(e) => setFilter({...filter, bank: e.target.value})}
-                  className="border border-gray-300 dark:border-gray-600 rounded-md text-sm py-1 px-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                >
-                  <option value="all">{t('All Banks')}</option>
-                  {bankOptions.map(option => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder={t('Search questions...')}
-                  value={filter.search}
-                  onChange={(e) => setFilter({...filter, search: e.target.value})}
-                  className="border border-gray-300 dark:border-gray-600 rounded-md py-1 px-3 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                />
-                <button
-                  onClick={handleNewQuestion}
-                  className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  {t('Add Question')}
-                </button>
-              </div>
-            </div>
-            
-            {filteredQuestions.length > 0 ? (
-              <div className="space-y-4">
-                {filteredQuestions.map(question => (
-                  <div key={question.id} className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex items-center flex-wrap gap-2">
-                        <span className={`px-2 py-1 text-xs font-medium rounded ${
-                          question.difficulty === 'easy' 
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                            : question.difficulty === 'medium'
-                              ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                              : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                        }`}>
-                          {t(question.difficulty.charAt(0).toUpperCase() + question.difficulty.slice(1))}
-                        </span>
-                        <span className={`px-2 py-1 text-xs font-medium rounded ${
-                          question.subject === 'math'
-                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                            : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
-                        }`}>
-                          {getSubjectLabel(question.subject)}
-                        </span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">
-                          Bank {question.bankNumber} ({Math.floor((question.bankNumber - 1) / 4) * 4 + 1}-{Math.floor((question.bankNumber - 1) / 4) * 4 + 4})
-                        </span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {getTopicName(question.topic)}
-                        </span>
-                      </div>
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleEditQuestion(question.id)}
-                          className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteQuestion(question.id)}
-                          className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-red-600 dark:text-red-400"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                    <p className="text-gray-900 dark:text-white mb-3">{question.text}</p>
-                    
-                    {question.imageUrl && (
-                      <div className="mb-3 bg-gray-100 dark:bg-gray-700 rounded-lg p-2 flex justify-center">
-                        <img 
-                          src={question.imageUrl} 
-                          alt={t("Question image")} 
-                          className="max-h-48 rounded" 
-                        />
-                      </div>
-                    )}
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      {question.options.map(option => (
-                        <div 
-                          key={option.id}
-                          className={`p-2 rounded-md flex items-center ${
-                            option.isCorrect
-                              ? 'bg-green-50 border border-green-200 dark:bg-green-900/30 dark:border-green-800'
-                              : 'bg-gray-50 border border-gray-200 dark:bg-gray-800 dark:border-gray-700'
-                          }`}
-                        >
-                          <div className={`h-5 w-5 rounded-full flex items-center justify-center mr-2 ${
-                            option.isCorrect
-                              ? 'bg-green-100 text-green-700 dark:bg-green-800 dark:text-green-200'
-                              : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-                          }`}>
-                            <span className="text-xs font-medium">{option.id.toUpperCase()}</span>
-                          </div>
-                          <span className="text-sm text-gray-800 dark:text-gray-200">
-                            {option.text}
-                          </span>
-                          {option.isCorrect && (
-                            <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 ml-auto" />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center">
-                <FileText className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-                <p className="text-gray-500 dark:text-gray-400 mb-2">
-                  {t('No questions found matching your criteria.')}
-                </p>
-                <button
-                  onClick={handleNewQuestion}
-                  className="inline-flex items-center px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  {t('Add your first question')}
-                </button>
-              </div>
-            )}
-          </div>
-        );
-        
-      case 'newQuestion':
-      case 'editQuestion':
-        return (
-          <div>
-            <div className="flex items-center mb-6">
-              <button
-                onClick={() => setView('questions')}
-                className="mr-3 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </button>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                {view === 'newQuestion' ? t('Create New Question') : t('Edit Question')}
-              </h3>
-            </div>
-            
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-              <div className="space-y-6">
-                {/* Subject selector */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    {t('Subject')}
-                  </label>
-                  <div className="flex gap-4">
-                    <label className="flex items-center">
-                      <input
-                        type="radio"
-                        name="subject"
-                        value="math"
-                        checked={questionForm.subject === 'math'}
-                        onChange={() => handleFormChange('subject', 'math')}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="ml-2 flex items-center">
-                        <Calculator className="h-4 w-4 text-blue-600 mr-1" />
-                        {t('Mathematics')}
-                      </span>
-                    </label>
-                    <label className="flex items-center">
-                      <input
-                        type="radio"
-                        name="subject"
-                        value="arabic"
-                        checked={questionForm.subject === 'arabic'}
-                        onChange={() => handleFormChange('subject', 'arabic')}
-                        className="h-4 w-4 text-purple-600 focus:ring-purple-500"
-                      />
-                      <span className="ml-2 flex items-center">
-                        <Languages className="h-4 w-4 text-purple-600 mr-1" />
-                        {t('Arabic')}
-                      </span>
-                    </label>
-                  </div>
-                </div>
-                
-                {/* Topic and difficulty selectors */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      {t('Topic')}
-                    </label>
-                    <select
-                      value={questionForm.topic}
-                      onChange={(e) => handleFormChange('topic', e.target.value)}
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                    >
-                      <option value="">{t('Select a topic')}</option>
-                      {topics
-                        .filter(topic => {
-                          const mathTopics = ['Algebra', 'Geometry', 'Calculus', 'Statistics', 'Trigonometry'];
-                          const isMatchSubject = questionForm.subject === 'math' 
-                            ? mathTopics.includes(topic.name)
-                            : !mathTopics.includes(topic.name);
-                          return isMatchSubject;
-                        })
-                        .map(topic => (
-                          <option key={topic.id} value={topic.id}>{topic.name}</option>
-                        ))}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      {t('Difficulty')}
-                    </label>
-                    <select
-                      value={questionForm.difficulty}
-                      onChange={(e) => handleFormChange('difficulty', e.target.value)}
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                    >
-                      <option value="easy">{t('Easy')}</option>
-                      <option value="medium">{t('Medium')}</option>
-                      <option value="hard">{t('Hard')}</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      {t('Bank Number')}
-                    </label>
-                    <div className="flex items-center">
-                      <select
-                        value={questionForm.bankNumber}
-                        onChange={(e) => handleFormChange('bankNumber', parseInt(e.target.value))}
-                        className="w-full border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                      >
-                        {bankOptions.map(option => (
-                          <option key={option.value} value={option.value}>{option.label}</option>
-                        ))}
-                      </select>
-                      <div className="ml-2 flex items-center bg-gray-100 dark:bg-gray-700 rounded-md px-2 py-2">
-                        <Hash className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                        <span className="text-sm text-gray-700 dark:text-gray-300 ml-1">{questionForm.bankNumber}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Question text */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    {t('Question Text')}
-                  </label>
-                  <textarea
-                    value={questionForm.text}
-                    onChange={(e) => handleFormChange('text', e.target.value)}
-                    rows={3}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                    placeholder={t('Enter your question here...')}
-                    dir={questionForm.subject === 'arabic' ? 'rtl' : 'ltr'}
-                  ></textarea>
-                </div>
-                
-                {/* Image upload */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    {t('Question Image')} ({t('optional')})
-                  </label>
-                  <div className="flex items-center">
-                    <button
-                      onClick={handleImageUpload}
-                      className="flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                    >
-                      <Image className="h-4 w-4 mr-2" />
-                      {questionForm.imageUrl ? t('Change Image') : t('Upload Image')}
-                    </button>
-                    {questionForm.imageUrl && (
-                      <button
-                        onClick={() => handleFormChange('imageUrl', null)}
-                        className="ml-2 text-red-600 dark:text-red-400 text-sm hover:underline"
-                      >
-                        {t('Remove')}
-                      </button>
-                    )}
-                  </div>
-                  {questionForm.imageUrl && (
-                    <div className="mt-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-2 flex justify-center">
-                      <img 
-                        src={questionForm.imageUrl} 
-                        alt={t("Question image")} 
-                        className="max-h-48 rounded" 
-                      />
-                    </div>
-                  )}
-                </div>
-                
-                {/* Answer options */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      {t('Answer Options')}
-                    </label>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {t('Select one correct answer')}
-                    </span>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    {questionForm.options.map(option => (
-                      <div key={option.id} className="flex items-center">
-                        <div className="flex-shrink-0 mr-2">
-                          <button
-                            onClick={() => handleOptionChange(option.id, 'isCorrect', true)}
-                            className={`h-6 w-6 rounded-full flex items-center justify-center ${
-                              option.isCorrect
-                                ? 'bg-green-100 text-green-700 dark:bg-green-800 dark:text-green-200'
-                                : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-                            }`}
-                          >
-                            <span className="text-xs font-medium">{option.id.toUpperCase()}</span>
-                          </button>
-                        </div>
-                        <input
-                          type="text"
-                          value={option.text}
-                          onChange={(e) => handleOptionChange(option.id, 'text', e.target.value)}
-                          className={`flex-1 border rounded-md py-2 px-3 ${
-                            option.isCorrect
-                              ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/30'
-                              : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800'
-                          } text-gray-700 dark:text-gray-300`}
-                          placeholder={`${t('Option')} ${option.id.toUpperCase()}`}
-                          dir={questionForm.subject === 'arabic' ? 'rtl' : 'ltr'}
-                        />
-                        {option.isCorrect && (
-                          <span className="ml-2 text-green-600 dark:text-green-400 flex items-center">
-                            <CheckCircle className="h-5 w-5" />
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                
-                {/* Action buttons */}
-                <div className="flex justify-end space-x-3 mt-8">
-                  <button
-                    onClick={() => setView('questions')}
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                  >
-                    {t('Cancel')}
-                  </button>
-                  <button
-                    onClick={handleSubmitQuestion}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center"
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    {view === 'newQuestion' ? t('Create Question') : t('Update Question')}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-        
-      default:
-        return null;
+  const handleSaveEdit = () => {
+    // Validate
+    if (!editingTopic.newName.trim()) {
+      setError(t.topicRequired);
+      return;
     }
+    
+    // Check if topic already exists (but not the same as current topic)
+    if (
+      editingTopic.name !== editingTopic.newName.trim().toLowerCase() && 
+      topics[activeTab].includes(editingTopic.newName.trim().toLowerCase())
+    ) {
+      setError(t.topicExists);
+      return;
+    }
+    
+    // Update topic
+    const updatedTopics = { ...topics };
+    updatedTopics[activeTab] = topics[activeTab].map(topic => 
+      topic === editingTopic.name ? editingTopic.newName.trim().toLowerCase() : topic
+    );
+    
+    setTopics(updatedTopics);
+    setSuccess(t.topicUpdated);
+    setEditingTopic(null);
+    
+    // Clear success message after 3 seconds
+    setTimeout(() => {
+      setSuccess('');
+    }, 3000);
+  };
+  
+  // Handle toggling the add form
+  const handleToggleAddForm = () => {
+    setShowAddForm(prev => !prev);
+    setNewTopic('');
+    setError('');
+  };
+  
+  // Export topics
+  const handleExportTopics = () => {
+    const dataStr = JSON.stringify(topics, null, 2);
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    
+    const exportFileDefaultName = 'gat-topics.json';
+    
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+  };
+  
+  // Import topics
+  const handleImportTopics = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const importedTopics = JSON.parse(e.target.result);
+        if (importedTopics.math && importedTopics.arabic) {
+          setTopics(importedTopics);
+          
+          // Update statistics
+          setStatistics(prev => ({
+            math: {
+              ...prev.math,
+              topics: importedTopics.math.length
+            },
+            arabic: {
+              ...prev.arabic,
+              topics: importedTopics.arabic.length
+            }
+          }));
+          
+          setSuccess(t.topicsImported);
+          
+          // Clear success message after 3 seconds
+          setTimeout(() => {
+            setSuccess('');
+          }, 3000);
+        } else {
+          setError(t.invalidImportFormat);
+        }
+      } catch (error) {
+        setError(t.invalidImportFormat);
+      }
+    };
+    reader.readAsText(file);
+    
+    // Reset file input
+    e.target.value = null;
   };
   
   return (
     <div>
-      {renderView()}
+      <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'} mb-6`}>
+        {t.gatManagement}
+      </h2>
+      
+      {/* Statistics cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow rounded-lg p-4`}>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'} flex items-center`}>
+              <Calculator className="h-5 w-5 mr-2" />
+              {t.mathStatistics}
+            </h3>
+            <span className={`px-2 py-1 text-xs rounded-full ${darkMode ? 'bg-blue-900 text-blue-300' : 'bg-blue-100 text-blue-800'}`}>
+              {t.mathSection}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+              <div className="flex justify-between items-center">
+                <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{t.topicsCount}</span>
+                <Tag className={`h-4 w-4 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+              </div>
+              <p className="text-2xl font-semibold">{statistics.math.topics}</p>
+            </div>
+            <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+              <div className="flex justify-between items-center">
+                <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{t.totalQuestions}</span>
+                <List className={`h-4 w-4 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+              </div>
+              <p className="text-2xl font-semibold">{statistics.math.questions.total}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow rounded-lg p-4`}>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'} flex items-center`}>
+              <BookOpen className="h-5 w-5 mr-2" />
+              {t.arabicStatistics}
+            </h3>
+            <span className={`px-2 py-1 text-xs rounded-full ${darkMode ? 'bg-green-900 text-green-300' : 'bg-green-100 text-green-800'}`}>
+              {t.arabicSection}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+              <div className="flex justify-between items-center">
+                <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{t.topicsCount}</span>
+                <Tag className={`h-4 w-4 ${darkMode ? 'text-green-400' : 'text-green-600'}`} />
+              </div>
+              <p className="text-2xl font-semibold">{statistics.arabic.topics}</p>
+            </div>
+            <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+              <div className="flex justify-between items-center">
+                <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{t.totalQuestions}</span>
+                <List className={`h-4 w-4 ${darkMode ? 'text-green-400' : 'text-green-600'}`} />
+              </div>
+              <p className="text-2xl font-semibold">{statistics.arabic.questions.total}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Success and error alerts */}
+      {success && (
+        <div className={`mb-4 p-3 ${darkMode ? 'bg-green-900/30 border-green-800' : 'bg-green-100 border-green-200'} border text-green-700 rounded-md flex items-center`}>
+          <Check className={`h-5 w-5 mr-2 ${darkMode ? 'text-green-400' : 'text-green-500'}`} />
+          {success}
+        </div>
+      )}
+      
+      {error && (
+        <div className={`mb-4 p-3 ${darkMode ? 'bg-red-900/30 border-red-800' : 'bg-red-100 border-red-200'} border text-red-700 rounded-md flex items-center`}>
+          <AlertCircle className={`h-5 w-5 mr-2 ${darkMode ? 'text-red-400' : 'text-red-500'}`} />
+          {error}
+        </div>
+      )}
+      
+      {/* Section tabs */}
+      <div className="mb-6">
+        <div className={`flex border ${darkMode ? 'border-gray-700' : 'border-gray-300'} rounded-md overflow-hidden`}>
+          <button
+            onClick={() => setActiveTab('math')}
+            className={`flex-1 py-2 px-4 flex items-center justify-center ${
+              activeTab === 'math' 
+                ? darkMode 
+                  ? 'bg-blue-900 text-white border-b-2 border-blue-500' 
+                  : 'bg-blue-50 text-blue-700 border-b-2 border-blue-500' 
+                : darkMode 
+                  ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' 
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            <Calculator className="h-4 w-4 mr-2" />
+            <span>{t.mathSection}</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('arabic')}
+            className={`flex-1 py-2 px-4 flex items-center justify-center ${
+              activeTab === 'arabic' 
+                ? darkMode 
+                  ? 'bg-blue-900 text-white border-b-2 border-blue-500' 
+                  : 'bg-blue-50 text-blue-700 border-b-2 border-blue-500' 
+                : darkMode 
+                  ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' 
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            <BookOpen className="h-4 w-4 mr-2" />
+            <span>{t.arabicSection}</span>
+          </button>
+        </div>
+      </div>
+      
+      {/* Topic management toolbar */}
+      <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow rounded-lg p-4 mb-6`}>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
+          <div className="flex md:w-1/3">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                placeholder={t.searchTopics}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className={`w-full pl-10 pr-4 py-2 ${
+                  darkMode 
+                    ? 'bg-gray-700 border-gray-600 placeholder-gray-400 text-white' 
+                    : 'border-gray-300 placeholder-gray-500 text-gray-900'
+                } border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
+              />
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className={`h-5 w-5 ${darkMode ? 'text-gray-400' : 'text-gray-400'}`} />
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-2 rounded-md ${
+                viewMode === 'grid'
+                  ? darkMode 
+                    ? 'bg-gray-700 text-white' 
+                    : 'bg-gray-200 text-gray-800' 
+                  : darkMode 
+                    ? 'text-gray-300 hover:bg-gray-700' 
+                    : 'text-gray-700 hover:bg-gray-100'
+              }`}
+              title={t.gridView}
+            >
+              <Grid className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-2 rounded-md ${
+                viewMode === 'list'
+                  ? darkMode 
+                    ? 'bg-gray-700 text-white' 
+                    : 'bg-gray-200 text-gray-800' 
+                  : darkMode 
+                    ? 'text-gray-300 hover:bg-gray-700' 
+                    : 'text-gray-700 hover:bg-gray-100'
+              }`}
+              title={t.listView}
+            >
+              <List className="h-5 w-5" />
+            </button>
+            <div className="h-5 border-r border-gray-300 mx-2"></div>
+            <button
+              onClick={handleToggleAddForm}
+              className={`p-2 rounded-md ${
+                showAddForm
+                  ? darkMode 
+                    ? 'bg-gray-700 text-white' 
+                    : 'bg-gray-200 text-gray-800' 
+                  : darkMode 
+                    ? 'text-gray-300 hover:bg-gray-700' 
+                    : 'text-gray-700 hover:bg-gray-100'
+              }`}
+              title={showAddForm ? t.cancel : t.addNewTopic}
+            >
+              {showAddForm ? <X className="h-5 w-5" /> : <PlusCircle className="h-5 w-5" />}
+            </button>
+            <label
+              className={`p-2 rounded-md cursor-pointer ${
+                darkMode 
+                  ? 'text-gray-300 hover:bg-gray-700' 
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+              title={t.importTopics}
+            >
+              <Upload className="h-5 w-5" />
+              <input 
+                type="file" 
+                accept=".json" 
+                className="hidden" 
+                onChange={handleImportTopics}
+              />
+            </label>
+            <button
+              onClick={handleExportTopics}
+              className={`p-2 rounded-md ${
+                darkMode 
+                  ? 'text-gray-300 hover:bg-gray-700' 
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+              title={t.exportTopics}
+            >
+              <Download className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+        
+        {/* Add topic form */}
+        {showAddForm && (
+          <div className={`mt-4 p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+            <h3 className={`text-lg font-medium ${darkMode ? 'text-white' : 'text-gray-900'} mb-3`}>
+              {t.addNewTopic}
+            </h3>
+            <form onSubmit={handleAddTopic} className="flex flex-col md:flex-row md:items-end space-y-3 md:space-y-0 md:space-x-3">
+              <div className="flex-1">
+                <label className={`block text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
+                  {t.topicName}
+                </label>
+                <input
+                  type="text"
+                  value={newTopic}
+                  onChange={(e) => {
+                    setNewTopic(e.target.value);
+                    setError('');
+                  }}
+                  className={`w-full p-2 ${
+                    darkMode 
+                      ? 'bg-gray-800 border-gray-600 text-white focus:ring-blue-500' 
+                      : 'border-gray-300 focus:ring-blue-500'
+                  } border rounded-md focus:outline-none focus:ring-2`}
+                  placeholder={t.enterTopicName}
+                />
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  type="button"
+                  onClick={handleToggleAddForm}
+                  className={`px-4 py-2 ${
+                    darkMode 
+                      ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
+                      : 'border-gray-300 text-gray-700 hover:bg-gray-100'
+                  } border rounded-md transition-colors duration-200`}
+                >
+                  {t.cancel}
+                </button>
+                <button
+                  type="submit"
+                  className={`px-4 py-2 ${
+                    darkMode 
+                      ? 'bg-blue-600 hover:bg-blue-500' 
+                      : 'bg-blue-600 hover:bg-blue-700'
+                  } text-white rounded-md transition-colors duration-200 flex items-center`}
+                >
+                  <PlusCircle className="h-4 w-4 mr-2" />
+                  {t.addTopic}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+      </div>
+      
+      {/* Topics list */}
+      <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow rounded-lg p-6`}>
+        <h3 className={`text-lg font-medium ${darkMode ? 'text-white' : 'text-gray-900'} mb-4 flex items-center`}>
+          <Settings className="h-5 w-5 mr-2" />
+          {activeTab === 'math' ? t.mathTopics : t.arabicTopics}
+          <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
+            darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700'
+          }`}>
+            {filteredTopics.length}
+          </span>
+        </h3>
+        
+        {loading ? (
+          <div className={`animate-pulse ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+            {t.loading}...
+          </div>
+        ) : (
+          <>
+            {filteredTopics.length === 0 ? (
+              <div className={`text-center py-6 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                {searchTerm ? t.noSearchResults : t.noTopicsFound}
+              </div>
+            ) : (
+              <>
+                {/* Grid view */}
+                {viewMode === 'grid' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {filteredTopics.map((topic) => (
+                      <div 
+                        key={topic}
+                        className={`p-3 rounded-lg ${
+                          darkMode 
+                            ? 'bg-gray-700 hover:bg-gray-600' 
+                            : 'bg-gray-100 hover:bg-gray-200'
+                        } transition-colors duration-200`}
+                      >
+                        {editingTopic && editingTopic.name === topic ? (
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="text"
+                              value={editingTopic.newName}
+                              onChange={handleUpdateEditingTopic}
+                              className={`flex-1 p-1 ${
+                                darkMode 
+                                  ? 'bg-gray-800 border-gray-600 text-white' 
+                                  : 'border-gray-300 text-gray-900'
+                              } border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm`}
+                            />
+                            <button
+                              onClick={handleSaveEdit}
+                              className={`p-1 rounded ${
+                                darkMode 
+                                  ? 'bg-green-900 text-green-300 hover:bg-green-800' 
+                                  : 'bg-green-100 text-green-600 hover:bg-green-200'
+                              }`}
+                              title={t.save}
+                            >
+                              <Save className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => setEditingTopic(null)}
+                              className={`p-1 rounded ${
+                                darkMode 
+                                  ? 'bg-gray-800 text-gray-300 hover:bg-gray-900' 
+                                  : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                              }`}
+                              title={t.cancel}
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium capitalize">{topic}</span>
+                            <div className="flex space-x-1">
+                              <button
+                                onClick={() => handleStartEdit(topic)}
+                                className={`p-1 rounded ${
+                                  darkMode 
+                                    ? 'hover:bg-gray-600 text-gray-300' 
+                                    : 'hover:bg-gray-200 text-gray-500'
+                                }`}
+                                title={t.edit}
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleRemoveTopic(topic)}
+                                className={`p-1 rounded ${
+                                  darkMode 
+                                    ? 'hover:bg-red-900 text-gray-300 hover:text-red-300' 
+                                    : 'hover:bg-red-100 text-gray-500 hover:text-red-500'
+                                }`}
+                                title={t.remove}
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* List view */}
+                {viewMode === 'list' && (
+                  <div className={`border ${darkMode ? 'border-gray-700' : 'border-gray-200'} rounded-lg overflow-hidden`}>
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className={darkMode ? 'bg-gray-700' : 'bg-gray-50'}>
+                        <tr>
+                          <th scope="col" className={`px-6 py-3 text-left text-xs font-medium ${darkMode ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}>
+                            {t.topicName}
+                          </th>
+                          <th scope="col" className={`px-6 py-3 text-left text-xs font-medium ${darkMode ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}>
+                            {t.section}
+                          </th>
+                          <th scope="col" className="relative px-6 py-3">
+                            <span className="sr-only">{t.actions}</span>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className={`${darkMode ? 'bg-gray-800' : 'bg-white'} divide-y ${darkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
+                        {filteredTopics.map((topic) => (
+                          <tr key={topic} className={darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {editingTopic && editingTopic.name === topic ? (
+                                <input
+                                  type="text"
+                                  value={editingTopic.newName}
+                                  onChange={handleUpdateEditingTopic}
+                                  className={`w-full p-1 ${
+                                    darkMode 
+                                      ? 'bg-gray-700 border-gray-600 text-white' 
+                                      : 'border-gray-300 text-gray-900'
+                                  } border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm`}
+                                />
+                              ) : (
+                                <div className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'} capitalize`}>
+                                  {topic}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                activeTab === 'math'
+                                  ? darkMode ? 'bg-blue-900 text-blue-200' : 'bg-blue-100 text-blue-800'
+                                  : darkMode ? 'bg-green-900 text-green-200' : 'bg-green-100 text-green-800'
+                              }`}>
+                                {activeTab === 'math' ? t.mathSection : t.arabicSection}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              {editingTopic && editingTopic.name === topic ? (
+                                <div className="flex justify-end space-x-2">
+                                  <button
+                                    onClick={handleSaveEdit}
+                                    className={`p-1 rounded ${
+                                      darkMode 
+                                        ? 'bg-green-900 text-green-300 hover:bg-green-800' 
+                                        : 'bg-green-100 text-green-600 hover:bg-green-200'
+                                    }`}
+                                    title={t.save}
+                                  >
+                                    <Save className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingTopic(null)}
+                                    className={`p-1 rounded ${
+                                      darkMode 
+                                        ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
+                                        : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                                    }`}
+                                    title={t.cancel}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex justify-end space-x-2">
+                                  <button
+                                    onClick={() => handleStartEdit(topic)}
+                                    className={`${
+                                      darkMode 
+                                        ? 'text-blue-400 hover:text-blue-300' 
+                                        : 'text-blue-600 hover:text-blue-900'
+                                    }`}
+                                  >
+                                    {t.edit}
+                                  </button>
+                                  <button
+                                    onClick={() => handleRemoveTopic(topic)}
+                                    className={`${
+                                      darkMode 
+                                        ? 'text-red-400 hover:text-red-300' 
+                                        : 'text-red-600 hover:text-red-900'
+                                    }`}
+                                  >
+                                    {t.remove}
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+      </div>
+      
+      {/* Question management section */}
+      <div className={`mt-6 ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow rounded-lg p-6`}>
+        <h3 className={`text-lg font-medium ${darkMode ? 'text-white' : 'text-gray-900'} mb-4`}>
+          {t.questionManagement}
+        </h3>
+        
+        <div className={`p-6 rounded-lg border-2 border-dashed text-center ${
+          darkMode ? 'border-gray-700 text-gray-400' : 'border-gray-300 text-gray-500'
+        }`}>
+          <p className="mb-2">{t.questionManagementDesc}</p>
+          <p className="text-sm">{t.comingSoon}</p>
+        </div>
+      </div>
     </div>
   );
 };

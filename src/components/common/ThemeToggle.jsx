@@ -1,49 +1,36 @@
 import React from 'react';
-import { Moon, Sun, Globe, Languages } from 'lucide-react';
-import { useAppContext } from '../../context/AppContext';
+import { Sun, Moon, Languages } from 'lucide-react';
+import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 const ThemeToggle = () => {
-  const { darkMode, toggleDarkMode, language, toggleLanguage, t } = useAppContext();
+  const { darkMode, toggleDarkMode } = useTheme();
+  const { language, toggleLanguage } = useLanguage();
 
   return (
     <div className="flex items-center space-x-2">
-      {/* Language Toggle */}
       <button
         onClick={toggleLanguage}
-        aria-label={t("Change Language")}
-        className={`relative p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-          language === 'ar' 
-            ? 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100' 
-            : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100'
-        }`}
+        className={`p-2 rounded-full ${
+          darkMode
+            ? 'text-gray-300 hover:bg-gray-700'
+            : 'text-gray-600 hover:bg-gray-100'
+        } transition-colors duration-200`}
+        aria-label={language === 'en' ? 'Switch to Arabic' : 'Switch to English'}
       >
-        <span className="sr-only">{t("Change Language")}</span>
-        {language === 'en' ? (
-          <Globe className="h-5 w-5" />
-        ) : (
-          <Languages className="h-5 w-5" />
-        )}
-        <span className="absolute -top-1 -right-1 px-1.5 py-0.5 text-xs font-medium rounded-full bg-blue-500 text-white">
-          {language.toUpperCase()}
-        </span>
+        <Languages className="h-5 w-5" />
       </button>
       
-      {/* Dark Mode Toggle */}
-      <button 
+      <button
         onClick={toggleDarkMode}
-        aria-label={t("Toggle Dark Mode")}
-        className={`p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-          darkMode 
-            ? 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100' 
-            : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100'
-        }`}
+        className={`p-2 rounded-full ${
+          darkMode
+            ? 'text-yellow-300 hover:bg-gray-700'
+            : 'text-gray-600 hover:bg-gray-100'
+        } transition-colors duration-200`}
+        aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
       >
-        <span className="sr-only">{t("Toggle Dark Mode")}</span>
-        {darkMode ? (
-          <Sun className="h-5 w-5" />
-        ) : (
-          <Moon className="h-5 w-5" />
-        )}
+        {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
       </button>
     </div>
   );
